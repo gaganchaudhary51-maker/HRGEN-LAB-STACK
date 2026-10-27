@@ -560,6 +560,15 @@ const DEFAULT_NAV_TABS: NavTabItem[] = [
 ];
 
 export default function App() {
+  // 3D Neon Magenta Cursor Spotlight Position Handler
+  const handleCardMouseMove = (e: React.MouseEvent<HTMLElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    e.currentTarget.style.setProperty('--mouse-x', `${x}px`);
+    e.currentTarget.style.setProperty('--mouse-y', `${y}px`);
+  };
+
   const [cart, setCart] = useState<Record<string, number>>({});
   const [selectedOrgan, setSelectedOrgan] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -590,13 +599,15 @@ export default function App() {
   const [portalRole, setPortalRole] = useState('admin');
   const [portalUser, setPortalUser] = useState('');
 
-  // Live CSS Theme custom properties initialization
+  // Live CSS Theme custom properties initialization (Enforcing Pure Clinical White + Magenta)
   useEffect(() => {
     try {
+      const root = document.documentElement;
+      root.style.setProperty('--bg-primary', '#ffffff');
+      root.style.setProperty('--brand-magenta', '#ff007f');
       const savedTheme = localStorage.getItem('dsd_theme_settings');
       if (savedTheme) {
         const parsed = JSON.parse(savedTheme);
-        const root = document.documentElement;
         if (parsed.primaryColor) root.style.setProperty('--brand-primary', parsed.primaryColor);
         if (parsed.accentColor) root.style.setProperty('--brand-accent', parsed.accentColor);
         if (parsed.cardRadius) {
@@ -851,7 +862,7 @@ export default function App() {
                   <a
                     key={tab.id}
                     href="#vitality-score"
-                    className="navlink font-semibold text-amber-300"
+                    className="navlink font-semibold text-pink-600 hover:text-pink-700"
                     onClick={(e) => {
                       e.preventDefault();
                       document.getElementById('vitality-score')?.scrollIntoView({ behavior: 'smooth' });
@@ -866,7 +877,7 @@ export default function App() {
                   <button 
                     key={tab.id}
                     type="button"
-                    className="navlink text-xs text-slate-400 hover:text-white"
+                    className="navlink text-xs text-slate-600 hover:text-pink-600"
                     onClick={() => setPortalOpen(true)}
                   >
                     {tab.label}
@@ -979,12 +990,12 @@ export default function App() {
 
           {/* Interactive 3D Anatomy Atlas (Learn Anatomy 3D Style) with Switcher */}
           <div className="hero3DCanvasWrapper relative">
-            <div className="absolute top-2 right-2 z-10 flex items-center gap-1.5 bg-slate-900/80 backdrop-blur-md p-1 rounded-xl border border-slate-700/60 text-[10.5px]">
+            <div className="absolute top-2 right-2 z-10 flex items-center gap-1.5 bg-white/90 backdrop-blur-md p-1 rounded-xl border border-slate-200 shadow-sm text-[10.5px]">
               <button
                 type="button"
                 onClick={() => setHeroViewMode('3D_ATLAS')}
                 className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
-                  heroViewMode === '3D_ATLAS' ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20' : 'text-slate-400 hover:text-white'
+                  heroViewMode === '3D_ATLAS' ? 'bg-pink-600 text-white shadow-md shadow-pink-500/25' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 3D Human Atlas
@@ -993,7 +1004,7 @@ export default function App() {
                 type="button"
                 onClick={() => setHeroViewMode('DNA_STRAND')}
                 className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
-                  heroViewMode === 'DNA_STRAND' ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20' : 'text-slate-400 hover:text-white'
+                  heroViewMode === 'DNA_STRAND' ? 'bg-pink-600 text-white shadow-md shadow-pink-500/25' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 DNA Strand
@@ -1033,7 +1044,7 @@ export default function App() {
               placeholder="Search 500+ tests, profiles or packages (e.g. HbA1c, CBC, Lipid, Thyroid, Full Body)…"
             />
             {search && (
-              <button type="button" onClick={() => setSearch('')} className="text-slate-400 hover:text-white">
+              <button type="button" onClick={() => setSearch('')} className="text-slate-400 hover:text-slate-700">
                 <X size={18} />
               </button>
             )}
@@ -1060,7 +1071,7 @@ export default function App() {
               <button 
                 type="button" 
                 onClick={() => setSelectedOrgan(null)}
-                className="text-xs text-sky-400 font-bold hover:underline"
+                className="text-xs text-pink-600 font-bold hover:underline"
               >
                 Reset Filter (Showing All)
               </button>
@@ -1072,10 +1083,11 @@ export default function App() {
               <div 
                 key={organ.id}
                 className={`organCard ${selectedOrgan === organ.id ? 'active' : ''}`}
+                onMouseMove={handleCardMouseMove}
                 style={{
-                  transform: selectedOrgan === organ.id ? 'scale(1.05)' : 'scale(1)',
-                  boxShadow: selectedOrgan === organ.id ? '0 0 30px rgba(0, 240, 255, 0.4), inset 0 0 15px rgba(0, 240, 255, 0.2)' : undefined,
-                  borderColor: selectedOrgan === organ.id ? '#00f0ff' : undefined
+                  transform: selectedOrgan === organ.id ? 'scale(1.05)' : undefined,
+                  boxShadow: selectedOrgan === organ.id ? '0 0 30px rgba(255, 0, 128, 0.45), 0 16px 36px rgba(255, 0, 128, 0.3)' : undefined,
+                  borderColor: selectedOrgan === organ.id ? '#ff007f' : undefined
                 }}
                 onClick={() => {
                   const nextOrgan = selectedOrgan === organ.id ? null : organ.id;
@@ -1112,7 +1124,7 @@ export default function App() {
             </div>
             <a 
               href="#vitality-score" 
-              className="text-xs font-bold text-sky-400 flex items-center gap-1.5 hover:underline"
+              className="text-xs font-bold text-pink-600 flex items-center gap-1.5 hover:underline"
               onClick={(e) => {
                 e.preventDefault();
                 document.getElementById('vitality-score')?.scrollIntoView({ behavior: 'smooth' });
@@ -1125,15 +1137,12 @@ export default function App() {
           <div className="curatedPackagesGrid">
             {filteredPackages.map(pkg => {
               const discountPercent = Math.max(0, Math.round(((pkg.old - pkg.price) / pkg.old) * 100));
-              const accentColor = pkg.organ3DColor || '#00f0ff';
 
               return (
                 <article 
                   key={pkg.id} 
                   className="curatedCard group relative flex flex-col justify-between"
-                  style={{
-                    borderColor: 'rgba(255, 255, 255, 0.1)'
-                  }}
+                  onMouseMove={handleCardMouseMove}
                 >
                   <div className="curatedCardTop p-6">
                     {/* 8K Luxury Clinical Laboratory & Diagnostic Photography Header */}
@@ -1142,19 +1151,19 @@ export default function App() {
                         <img 
                           src={pkg.image} 
                           alt={pkg.name} 
-                          className="w-full h-full object-cover object-center group-hover/img:scale-105 transition-transform duration-500 filter brightness-90 group-hover/img:brightness-100"
+                          className="w-full h-full object-cover object-center group-hover/img:scale-105 transition-transform duration-500 filter brightness-95 group-hover/img:brightness-100"
                           loading="lazy"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent" />
                         
                         {/* Frosted Glass Floating Badge */}
                         <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between pointer-events-none">
-                          <span className="backdrop-blur-md bg-slate-950/75 border border-white/20 text-white font-mono text-[10.5px] font-bold px-2.5 py-1 rounded-xl shadow-lg flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                          <span className="backdrop-blur-md bg-white/95 border border-slate-200 text-slate-900 font-mono text-[10.5px] font-bold px-2.5 py-1 rounded-xl shadow-lg flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                             {pkg.analyzerName || 'Beckman Coulter DxC 700 + Roche e411'}
                           </span>
                           {discountPercent > 0 && (
-                            <span className="backdrop-blur-md bg-rose-500/85 text-white font-bold text-xs px-2.5 py-0.5 rounded-lg shadow-lg">
+                            <span className="backdrop-blur-md bg-pink-600 text-white font-bold text-xs px-2.5 py-0.5 rounded-lg shadow-lg">
                               {discountPercent}% OFF
                             </span>
                           )}
@@ -1167,7 +1176,7 @@ export default function App() {
                       <div className="flex items-center gap-3">
                         <div 
                           className="organ3DBadge relative"
-                          style={{ '--organ-glow': `${accentColor}55` } as React.CSSProperties}
+                          style={{ '--organ-glow': 'rgba(255, 0, 128, 0.35)' } as React.CSSProperties}
                         >
                           <div className="organGlowBackdrop" />
                           <div className="organIconMesh">
@@ -1179,11 +1188,11 @@ export default function App() {
                             <span className="curatedParamPill block w-fit">
                               {pkg.parametersCount || 10}+ Biomarkers
                             </span>
-                            <span className="text-[9.5px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            <span className="text-[9.5px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
                               NABL ISO 15189
                             </span>
                             {pkg.tag && !pkg.tag.toLowerCase().includes('parameters') && (
-                              <span className="text-[10px] font-mono text-cyan-400 font-medium">
+                              <span className="text-[10px] font-mono text-pink-600 font-medium">
                                 · {pkg.tag.split('·')[0].trim()}
                               </span>
                             )}
@@ -1193,24 +1202,24 @@ export default function App() {
                     </div>
 
                     <h3 
-                      className="curatedTitle text-xl font-bold text-white mb-2 group-hover:text-cyan-300 transition-colors cursor-pointer flex items-center justify-between"
+                      className="curatedTitle text-xl font-bold text-slate-900 mb-2 group-hover:text-pink-600 transition-colors cursor-pointer flex items-center justify-between"
                       onClick={() => handleOpenDetailModal(pkg)}
                       title="Click to view full clinical parameters & preparation"
                     >
                       <span>{pkg.name}</span>
-                      <ChevronRight size={18} className="text-slate-500 group-hover:text-cyan-300 transition-transform group-hover:translate-x-1" />
+                      <ChevronRight size={18} className="text-slate-400 group-hover:text-pink-600 transition-transform group-hover:translate-x-1" />
                     </h3>
-                    <p className="curatedDesc text-xs text-slate-400 leading-relaxed mb-4">
+                    <p className="curatedDesc text-xs text-slate-600 leading-relaxed mb-4">
                       {pkg.desc}
                     </p>
 
                     {/* WHY TAKE THIS TEST (CLINICAL PURPOSE & SYMPTOMS) */}
                     {pkg.whyTake && (
-                      <div className="p-3 rounded-2xl bg-slate-950/70 border border-slate-800/80 mb-4 space-y-1.5">
-                        <div className="text-[10.5px] font-mono font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <div className="p-3 rounded-2xl bg-pink-50/50 border border-pink-100 mb-4 space-y-1.5">
+                        <div className="text-[10.5px] font-mono font-bold text-pink-600 uppercase tracking-wider flex items-center gap-1.5">
                           <Sparkles size={12} /> क्लिनिकल उद्देश्य (Clinical Purpose)
                         </div>
-                        <p className="text-[11.5px] text-slate-300 leading-relaxed">
+                        <p className="text-[11.5px] text-slate-700 leading-relaxed">
                           {pkg.whyTake}
                         </p>
                       </div>
@@ -1226,7 +1235,7 @@ export default function App() {
                           {pkg.symptoms.map((sym: string) => (
                             <span 
                               key={sym} 
-                              className="text-[10.5px] px-2.5 py-0.5 rounded-lg bg-rose-500/10 text-rose-300 border border-rose-500/20"
+                              className="text-[10.5px] px-2.5 py-0.5 rounded-lg bg-pink-50 text-pink-700 border border-pink-200"
                             >
                               • {sym}
                             </span>
@@ -1242,8 +1251,8 @@ export default function App() {
                       </div>
                       <div className="flex flex-wrap gap-1.5">
                         {(pkg.inclusionsList || ['Complete Hemogram', 'Liver LFT', 'Kidney KFT', 'Lipid Profile']).map((inc: string, iIdx: number) => (
-                          <span key={iIdx} className="inclusionTag text-[11px] bg-slate-900 border border-slate-700/60 text-slate-300 flex items-center gap-1">
-                            <CheckCircle2 size={12} className="text-emerald-400 shrink-0" />
+                          <span key={iIdx} className="inclusionTag text-[11px] bg-slate-50 border border-slate-200 text-slate-700 flex items-center gap-1">
+                            <CheckCircle2 size={12} className="text-emerald-600 shrink-0" />
                             {inc}
                           </span>
                         ))}
@@ -1251,10 +1260,10 @@ export default function App() {
                     </div>
 
                     {/* LUXURY CLINICAL PHOTO ACCREDITATION & DETAIL TRIGGER */}
-                    <div className="p-3 rounded-2xl bg-gradient-to-r from-slate-950/90 via-slate-900/80 to-slate-950/90 border border-slate-800/80 flex items-center justify-between gap-3 shadow-inner">
+                    <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3 shadow-sm">
                       <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                        <span className="text-[11px] font-medium text-slate-300">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        <span className="text-[11px] font-medium text-slate-700">
                           Central NABL Lab · Dual MD Pathologist Sign-Off
                         </span>
                       </div>
@@ -1265,7 +1274,7 @@ export default function App() {
                           setSelectedDetailPkg(pkg);
                           setDetailModalOpen(true);
                         }}
-                        className="text-[10.5px] font-semibold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 hover:underline transition-all shrink-0"
+                        className="text-[10.5px] font-semibold text-pink-600 hover:text-pink-700 flex items-center gap-1 hover:underline transition-all shrink-0"
                         title="Inspect clinical specimen tubes and analyzer worklists"
                       >
                         <FlaskConical size={12} />
@@ -1275,24 +1284,24 @@ export default function App() {
 
                   </div>
 
-                    {/* PHASE 1: PRE-ANALYTICAL CLINICAL METADATA BADGES */}
+                  {/* PRE-ANALYTICAL CLINICAL METADATA BADGES */}
                   <div className="px-6 pb-2 flex flex-wrap gap-1.5">
                     {pkg.fastingHours && pkg.fastingHours > 0 ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/25">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
                         ☕ Fasting {pkg.fastingHours}–{pkg.fastingHours + 2} Hrs
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
                         ✓ Non-Fasting (Anytime)
                       </span>
                     )}
-                    <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-300 border border-sky-500/25">
+                    <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
                       ⏱ TAT: {pkg.tat || 'Same Day'}
                     </span>
-                    <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800/80 text-slate-300 border border-slate-700/60">
+                    <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
                       🧪 {pkg.sampleType || 'Blood (Vacutainer)'}
                     </span>
-                    <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-300 border border-violet-500/25">
+                    <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
                       ⚙ 6-Sigma Analyzer
                     </span>
                   </div>
@@ -1300,27 +1309,27 @@ export default function App() {
                   {/* CLINICAL SPECS & ANALYZER ROW */}
                   <div className="curatedSpecsRow">
                     <div className="curatedSpecItem">
-                      <Droplet size={14} className="text-cyan-400 shrink-0" />
+                      <Droplet size={14} className="text-pink-600 shrink-0" />
                       <span className="truncate">{pkg.sampleType || 'Blood & Urine'}</span>
                     </div>
                     <div className="curatedSpecItem">
-                      <Clock3 size={14} className="text-amber-400 shrink-0" />
+                      <Clock3 size={14} className="text-amber-600 shrink-0" />
                       <span>{pkg.fastingHours ? `${pkg.fastingHours}h Fasting` : 'Non-fasting OK'}</span>
                     </div>
                     <div className="curatedSpecItem">
-                      <Activity size={14} className="text-emerald-400 shrink-0" />
+                      <Activity size={14} className="text-emerald-600 shrink-0" />
                       <span>{pkg.tat || 'Reports in 6 hrs'}</span>
                     </div>
                     <div className="curatedSpecItem" title={pkg.analyzerName || 'Beckman Coulter AU480'}>
-                      <ShieldCheck size={14} className="text-cyan-400 shrink-0" />
+                      <ShieldCheck size={14} className="text-pink-600 shrink-0" />
                       <span className="truncate font-medium">{pkg.analyzerName || 'Beckman Coulter'}</span>
                     </div>
                   </div>
 
-                  {/* VALUE ADD: FREE MBBS DOCTOR TELECONSULTATION (HEALTHIANS BENCHMARK) */}
+                  {/* VALUE ADD: FREE MBBS DOCTOR TELECONSULTATION */}
                   <div className="px-6 pt-3 pb-1">
-                    <div className="flex items-center gap-2 p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-[11px] font-semibold text-emerald-300">
-                      <CheckCircle2 size={13} className="text-emerald-400 shrink-0" />
+                    <div className="flex items-center gap-2 p-2 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] font-semibold text-emerald-800">
+                      <CheckCircle2 size={13} className="text-emerald-600 shrink-0" />
                       <span>Includes Free 1-on-1 MBBS Doctor Teleconsultation & Diet Plan</span>
                     </div>
                   </div>
@@ -1328,38 +1337,38 @@ export default function App() {
                   {/* PRICING & ACTIONS */}
                   <div className="curatedCardBottom p-6">
                     <div className="curatedPriceBox">
-                      <span className="curatedPriceMain text-2xl font-black text-white">₹{pkg.price}</span>
+                      <span className="curatedPriceMain text-2xl font-black text-slate-900">₹{pkg.price}</span>
                       {pkg.old > pkg.price && (
-                        <span className="curatedPriceOld text-xs text-slate-500 line-through">₹{pkg.old}</span>
+                        <span className="curatedPriceOld text-xs text-slate-400 line-through">₹{pkg.old}</span>
                       )}
                     </div>
 
                     <div className="curatedActionGroup flex items-center gap-2">
                       <button 
                         type="button" 
-                        className="btnViewDetails flex items-center justify-center gap-1.5 text-xs font-bold min-h-[44px] px-3.5 py-2.5 rounded-xl"
+                        className="btnViewDetails flex items-center justify-center gap-1.5 text-xs font-bold min-h-[44px] px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white hover:border-pink-500 hover:text-pink-600 text-slate-700 transition-all shadow-sm"
                         onClick={() => handleOpenDetailModal(pkg)}
                         title="View complete clinical breakdown & fasting instructions"
                       >
-                        <Info size={13} className="text-cyan-400" />
+                        <Info size={13} className="text-pink-600" />
                         Details
                       </button>
 
                       <button 
                         type="button" 
-                        className="btnViewDetails flex items-center justify-center gap-1.5 text-xs font-bold min-h-[44px] px-3.5 py-2.5 rounded-xl"
+                        className="btnViewDetails flex items-center justify-center gap-1.5 text-xs font-bold min-h-[44px] px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white hover:border-pink-500 hover:text-pink-600 text-slate-700 transition-all shadow-sm"
                         onClick={() => {
                           setActiveBreakdownPkg(pkg);
                           setBreakdownDrawerOpen(true);
                         }}
                       >
-                        <FlaskConical size={14} className="text-cyan-400" />
+                        <FlaskConical size={14} className="text-pink-600" />
                         3D Anatomy
                       </button>
 
                       <button 
                         type="button" 
-                        className="btnBookNow text-xs font-black min-h-[44px] px-4 py-2.5 rounded-xl"
+                        className="btnBookNow text-xs font-black min-h-[44px] px-4 py-2.5 rounded-xl bg-gradient-to-r from-pink-600 to-rose-500 hover:from-pink-500 hover:to-rose-400 text-white shadow-md hover:shadow-lg hover:shadow-pink-500/25 transition-all"
                         onClick={() => {
                           qty(pkg.id, 1);
                           setCartOpen(true);
@@ -1413,11 +1422,11 @@ export default function App() {
         {/* CLINICAL LABORATORY QUALITY & ACCREDITATIONS */}
         <section className="qualitySection">
           <div className="text-center max-w-2xl mx-auto space-y-2">
-            <span className="text-xs font-bold text-sky-400 uppercase tracking-widest">
+            <span className="text-xs font-bold text-pink-600 uppercase tracking-widest">
               Uncompromising Diagnostic Precision
             </span>
-            <h2 className="text-3xl font-extrabold text-white">Why Patients & Doctors Trust DSD Care</h2>
-            <p className="text-slate-400 text-sm">
+            <h2 className="text-3xl font-extrabold text-slate-900">Why Patients & Doctors Trust DSD Care</h2>
+            <p className="text-slate-600 text-sm">
               We operate with 6-Sigma clinical precision to ensure every single parameter is accurate, validated, and reproducible.
             </p>
           </div>
@@ -1461,7 +1470,7 @@ export default function App() {
         <section className="faqSection">
           <div className="text-center mb-8 space-y-1">
             <div className="eyebrow">FREQUENTLY ASKED QUESTIONS</div>
-            <h2 className="text-2xl font-bold text-white">Everything you need to know before your test</h2>
+            <h2 className="text-2xl font-bold text-slate-900">Everything you need to know before your test</h2>
           </div>
 
           <div>
@@ -1473,7 +1482,7 @@ export default function App() {
                   onClick={() => setOpenFaq(openFaq === fIdx ? null : fIdx)}
                 >
                   <span>{faq.q}</span>
-                  {openFaq === fIdx ? <ChevronUp size={18} className="text-sky-400" /> : <ChevronDown size={18} className="text-slate-400" />}
+                  {openFaq === fIdx ? <ChevronUp size={18} className="text-pink-600" /> : <ChevronDown size={18} className="text-slate-400" />}
                 </button>
                 {openFaq === fIdx && (
                   <div className="faqAnswer">
@@ -1534,39 +1543,39 @@ export default function App() {
       </main>
 
       {/* GLOBAL PLATFORM FOOTER */}
-      <footer className="w-full border-t border-slate-800/80 bg-slate-950/90 py-8 px-6 mt-16 backdrop-blur">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 text-xs text-slate-400">
+      <footer className="w-full border-t border-slate-200 bg-slate-50 py-8 px-6 mt-16">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 text-xs text-slate-600">
           <div className="flex items-center gap-3">
             <img src="/resources/dsd-logo.png" alt="DSD Care" className="w-7 h-7 object-contain opacity-80" onError={e => e.currentTarget.style.display = 'none'} />
             <div>
-              <span className="font-semibold text-slate-200">Dr. Shastri Diagnostics (DSD Care)</span>
-              <span className="mx-2 text-slate-600">·</span>
+              <span className="font-semibold text-slate-900">Dr. Shastri Diagnostics (DSD Care)</span>
+              <span className="mx-2 text-slate-400">·</span>
               <span>Powered by HRGen SaaS Engine</span>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1.5 text-emerald-400">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+            <span className="flex items-center gap-1.5 text-emerald-600 font-medium">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
               Multi-Tenant SaaS Live
             </span>
             <button
               type="button"
               onClick={() => setTenantAdminOpen(true)}
-              className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 transition-all font-medium text-xs shadow-sm hover:shadow-cyan-500/20"
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-pink-50 hover:bg-pink-100 text-pink-700 border border-pink-200 transition-all font-medium text-xs shadow-sm hover:shadow-pink-500/20"
               title="Lab Owner Portal (Custom Test Prices, Package Rates, Flebo Fleet & Rights)"
             >
-              <Building2 size={14} className="text-cyan-400" />
+              <Building2 size={14} className="text-pink-600" />
               <span>Tenant Admin (Lab Owner)</span>
             </button>
             <button
               type="button"
               onClick={() => setSuperAdminOpen(true)}
-              className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/30 transition-all font-medium text-xs shadow-sm hover:shadow-purple-500/20"
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-pink-600 hover:bg-pink-500 text-white font-bold text-xs shadow-md hover:shadow-pink-500/25 transition-all"
               title="Platform Owner SaaS Control Panel (Tenant, CMS, Universal Catalog)"
             >
-              <Crown size={14} className="text-purple-400" />
-              <span>Super Admin Panel</span>
+              <Crown size={14} />
+              <span>Super Admin Master</span>
             </button>
           </div>
         </div>

@@ -66,39 +66,39 @@ export interface TierTheme {
 export const GAUGE_THEMES: Record<'Optimal' | 'Moderate' | 'Elevated Risk', TierTheme> = {
   Optimal: {
     gradientId: 'grad-optimal',
-    startColor: '#48ed86', // DSD Signature Emerald
-    endColor: '#10b981',   // Deep Emerald
-    glowColor: 'rgba(72, 237, 134, 0.45)',
-    hexGlow: '#48ed86',
+    startColor: '#10b981', // Clean Emerald
+    endColor: '#059669',   // Deep Clinical Emerald
+    glowColor: 'rgba(16, 185, 129, 0.35)',
+    hexGlow: '#10b981',
     statusLabel: 'Optimal Vitality',
-    badgeText: '#a7f3d0',
-    badgeBg: 'rgba(72, 237, 134, 0.12)',
-    badgeBorder: 'rgba(72, 237, 134, 0.35)',
+    badgeText: '#065f46',
+    badgeBg: 'rgba(16, 185, 129, 0.12)',
+    badgeBorder: 'rgba(16, 185, 129, 0.35)',
     sublabel: 'Excellent biomarker stability',
   },
   Moderate: {
     gradientId: 'grad-moderate',
-    startColor: '#b7ff67', // Lime Accent
-    endColor: '#f59e0b',   // Warm Amber
-    glowColor: 'rgba(245, 158, 11, 0.45)',
+    startColor: '#f59e0b', // Clean Amber
+    endColor: '#d97706',   // Deep Amber
+    glowColor: 'rgba(245, 158, 11, 0.35)',
     hexGlow: '#f59e0b',
-    statusLabel: 'Moderate Health Risk',
-    badgeText: '#fde68a',
+    statusLabel: 'Moderate Risk',
+    badgeText: '#92400e',
     badgeBg: 'rgba(245, 158, 11, 0.12)',
     badgeBorder: 'rgba(245, 158, 11, 0.35)',
-    sublabel: 'Lifestyle intervention recommended',
+    sublabel: 'Targeted lifestyle optimization',
   },
   'Elevated Risk': {
     gradientId: 'grad-risk',
-    startColor: '#f97316', // Orange
-    endColor: '#f43f5e',   // Coral / Rose
-    glowColor: 'rgba(244, 63, 94, 0.45)',
-    hexGlow: '#f43f5e',
-    statusLabel: 'Elevated Attention Needed',
-    badgeText: '#fecdd3',
-    badgeBg: 'rgba(244, 63, 94, 0.12)',
-    badgeBorder: 'rgba(244, 63, 94, 0.35)',
-    sublabel: 'Diagnostic follow-up advised',
+    startColor: '#ff007f', // Signature Neon Magenta
+    endColor: '#e11d48',   // Deep Magenta Rose
+    glowColor: 'rgba(255, 0, 128, 0.35)',
+    hexGlow: '#ff007f',
+    statusLabel: 'Attention Needed',
+    badgeText: '#9f1239',
+    badgeBg: 'rgba(255, 0, 128, 0.1)',
+    badgeBorder: 'rgba(255, 0, 128, 0.35)',
+    sublabel: 'Diagnostic evaluation advised',
   },
 };
 
@@ -177,20 +177,20 @@ export const RadialScoreGauge: React.FC<RadialScoreGaugeProps> = ({
         <defs>
           {/* Optimal Emerald Gradient */}
           <linearGradient id="grad-optimal" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#48ed86" />
-            <stop offset="100%" stopColor="#10b981" />
+            <stop offset="0%" stopColor="#10b981" />
+            <stop offset="100%" stopColor="#059669" />
           </linearGradient>
 
-          {/* Moderate Lime / Amber Gradient */}
+          {/* Moderate Amber Gradient */}
           <linearGradient id="grad-moderate" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#b7ff67" />
-            <stop offset="100%" stopColor="#f59e0b" />
+            <stop offset="0%" stopColor="#f59e0b" />
+            <stop offset="100%" stopColor="#d97706" />
           </linearGradient>
 
-          {/* Elevated Risk Orange / Coral Gradient */}
+          {/* Elevated Risk Neon Magenta Gradient */}
           <linearGradient id="grad-risk" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#f97316" />
-            <stop offset="100%" stopColor="#f43f5e" />
+            <stop offset="0%" stopColor="#ff007f" />
+            <stop offset="100%" stopColor="#e11d48" />
           </linearGradient>
 
           {/* Atmospheric Particle Blur Filters */}
@@ -208,7 +208,7 @@ export const RadialScoreGauge: React.FC<RadialScoreGaugeProps> = ({
           cy={CENTER}
           r={RADIUS + 14}
           fill="none"
-          stroke="rgba(72, 237, 134, 0.10)"
+          stroke="rgba(15, 23, 42, 0.08)"
           strokeWidth="1"
           strokeDasharray="4 6"
         />
@@ -219,7 +219,7 @@ export const RadialScoreGauge: React.FC<RadialScoreGaugeProps> = ({
           cy={CENTER}
           r={RADIUS - 14}
           fill="none"
-          stroke="rgba(255, 255, 255, 0.04)"
+          stroke="rgba(15, 23, 42, 0.05)"
           strokeWidth="1"
         />
 
@@ -229,7 +229,7 @@ export const RadialScoreGauge: React.FC<RadialScoreGaugeProps> = ({
           cy={CENTER}
           r={RADIUS}
           fill="none"
-          stroke="rgba(255, 255, 255, 0.06)"
+          stroke="rgba(15, 23, 42, 0.09)"
           strokeWidth={STROKE_WIDTH}
         />
 
@@ -285,30 +285,30 @@ export const RadialScoreGauge: React.FC<RadialScoreGaugeProps> = ({
       {/* Central Metric Value & Clinical Bracket Badge (Absolute Overlay) */}
       <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none select-none px-4">
         {/* Subtle Upper Eyebrow */}
-        <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-400/90 mb-0.5">
+        <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 mb-0.5">
           Vitality Score
         </span>
 
         {/* Animated Numeric Counter */}
         <div className="flex items-baseline justify-center">
-          <span className="font-['Manrope'] text-5xl font-extrabold text-white tracking-tight tabular-nums">
+          <span className="font-['Plus_Jakarta_Sans',sans-serif] text-5xl font-black text-slate-900 tracking-tight tabular-nums">
             {displayScore}
           </span>
-          <span className="text-xl text-neutral-400 font-semibold ml-1">/100</span>
+          <span className="text-xl text-slate-400 font-bold ml-1">/100</span>
         </div>
 
         {/* Clinical Status Bracket Pill Badge */}
         <span
-          className="inline-flex items-center gap-1.5 mt-2 px-3 py-0.5 text-xs font-semibold rounded-full border transition-all duration-300"
+          className="inline-flex items-center gap-1.5 mt-2 px-3.5 py-1 text-xs font-bold rounded-full border transition-all duration-300"
           style={{
             borderColor: theme.badgeBorder,
             backgroundColor: theme.badgeBg,
             color: theme.badgeText,
-            boxShadow: `0 0 12px ${theme.glowColor}`,
+            boxShadow: `0 2px 10px ${theme.glowColor}`,
           }}
         >
           <span
-            className="w-1.5 h-1.5 rounded-full animate-pulse"
+            className="w-2 h-2 rounded-full animate-pulse"
             style={{ backgroundColor: theme.startColor }}
           />
           {theme.statusLabel}

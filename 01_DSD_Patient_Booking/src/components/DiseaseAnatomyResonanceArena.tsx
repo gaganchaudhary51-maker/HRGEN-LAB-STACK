@@ -199,6 +199,14 @@ export const DiseaseAnatomyResonanceArena: React.FC<DiseaseAnatomyResonanceArena
   const [activeItem, setActiveItem] = useState<InteractiveDiseaseFlowItem>(FLOW_ITEMS[0]);
   const [activeOrganId, setActiveOrganId] = useState<string>(FLOW_ITEMS[0].organId);
 
+  const handleCardMouseMove = (e: React.MouseEvent<HTMLElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    e.currentTarget.style.setProperty('--mouse-x', `${x}px`);
+    e.currentTarget.style.setProperty('--mouse-y', `${y}px`);
+  };
+
   const handleSelectPackage = (item: InteractiveDiseaseFlowItem) => {
     setActiveItem(item);
     setActiveOrganId(item.organId);
@@ -210,21 +218,21 @@ export const DiseaseAnatomyResonanceArena: React.FC<DiseaseAnatomyResonanceArena
       {/* SECTION HEADER LOCKED TO 8PX GRID */}
       <div className="flex flex-col lg:flex-row items-start lg:items-end justify-between mb-8 gap-6">
         <div className="space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-mono font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 uppercase tracking-widest mb-1 shadow-sm">
-            <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping inline-block" />
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-mono font-bold bg-pink-50 text-pink-700 border border-pink-200 uppercase tracking-widest mb-1 shadow-sm">
+            <span className="w-2.5 h-2.5 rounded-full bg-pink-600 animate-ping inline-block" />
             Interactive 3D Physiological Map
           </div>
-          <h2 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
+          <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
             Explore Body Systems & Diagnostic Panels
           </h2>
-          <p className="text-sm text-slate-400 max-w-2xl leading-relaxed">
+          <p className="text-sm text-slate-600 max-w-2xl leading-relaxed">
             Select any health profile below to visualize affected physiological systems and corresponding laboratory investigations in real time.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-900/80 border border-slate-700/80 text-xs font-mono text-slate-300 shadow-md">
-            <Activity size={16} className="text-emerald-400 animate-pulse" />
+          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-slate-200 text-xs font-mono text-slate-700 shadow-sm">
+            <Activity size={16} className="text-emerald-600 animate-pulse" />
             <span>3D Physiological Resonance Engine</span>
           </div>
         </div>
@@ -239,27 +247,22 @@ export const DiseaseAnatomyResonanceArena: React.FC<DiseaseAnatomyResonanceArena
             <motion.div
               key={item.id}
               onClick={() => handleSelectPackage(item)}
+              onMouseMove={handleCardMouseMove}
               whileHover={{ scale: 1.025 }}
               whileTap={{ scale: 0.97 }}
               animate={isSelected ? { scale: 1.03 } : { scale: 1 }}
               transition={{ type: 'spring', stiffness: 300, damping: 25 }}
               className={`p-6 rounded-3xl border cursor-pointer relative overflow-hidden transition-all flex flex-col justify-between ${
                 isSelected
-                  ? 'bg-slate-900/90 shadow-2xl'
-                  : 'bg-slate-900/50 border-slate-800/80 hover:border-slate-700'
+                  ? 'bg-white border-2 border-pink-500 shadow-xl shadow-pink-500/25 ring-1 ring-pink-500'
+                  : 'bg-white border-slate-200 hover:border-pink-500 hover:shadow-lg hover:shadow-pink-500/10'
               }`}
-              style={{
-                borderColor: isSelected ? item.accentColor : undefined,
-                boxShadow: isSelected ? `0 20px 50px ${item.secondaryGlow}, inset 0 1px 0 rgba(255, 255, 255, 0.2)` : undefined,
-                backdropFilter: 'blur(28px)'
-              }}
             >
               {/* Card Top */}
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <div
-                    className="w-11 h-11 rounded-2xl flex items-center justify-center text-2xl shadow-inner border border-white/10"
-                    style={{ background: `linear-gradient(135deg, ${item.accentColor}25, rgba(15, 23, 42, 0.8))` }}
+                    className="w-11 h-11 rounded-2xl flex items-center justify-center text-2xl shadow-sm border border-slate-200 bg-pink-50/70"
                   >
                     {item.organEmoji}
                   </div>
@@ -267,35 +270,34 @@ export const DiseaseAnatomyResonanceArena: React.FC<DiseaseAnatomyResonanceArena
                   <span
                     className={`text-[9.5px] font-mono font-bold px-2.5 py-1 rounded-full uppercase tracking-wider ${
                       isSelected
-                        ? 'bg-white text-slate-950 shadow-md font-black animate-pulse'
-                        : 'bg-slate-800/90 text-slate-400 border border-slate-700/80'
+                        ? 'bg-pink-600 text-white shadow-md font-black'
+                        : 'bg-slate-100 text-slate-600 border border-slate-200'
                     }`}
                   >
                     {isSelected ? '3D Active ✓' : 'Select'}
                   </span>
                 </div>
 
-                <div className="text-[11px] font-mono font-bold" style={{ color: item.accentColor }}>
+                <div className="text-[11px] font-mono font-bold text-pink-600">
                   {item.badgeTag}
                 </div>
-                <h3 className="text-base font-bold text-white mt-1 group-hover:text-cyan-300 transition-colors">
+                <h3 className="text-base font-bold text-slate-900 mt-1 group-hover:text-pink-600 transition-colors">
                   {item.categoryName}
                 </h3>
-                <p className="text-xs text-slate-400 mt-1 line-clamp-2">
+                <p className="text-xs text-slate-600 mt-1 line-clamp-2">
                   {item.tagline}
                 </p>
               </div>
 
               {/* Card Bottom */}
-              <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
                 <div>
                   <span className="text-[10px] font-mono text-slate-500 block">NABL SPECIAL</span>
-                  <b className="text-lg font-black text-white">₹{item.package.price}</b>
+                  <b className="text-lg font-black text-slate-900">₹{item.package.price}</b>
                 </div>
 
                 <span
-                  className="font-mono text-[11px] font-bold flex items-center gap-1 hover:underline"
-                  style={{ color: item.accentColor }}
+                  className="font-mono text-[11px] font-bold flex items-center gap-1 hover:underline text-pink-600"
                 >
                   Explore 3D <ChevronRight size={14} />
                 </span>
@@ -310,22 +312,22 @@ export const DiseaseAnatomyResonanceArena: React.FC<DiseaseAnatomyResonanceArena
         
         {/* LEFT 5 COLS: 3D HUMAN BODY ANATOMY ATLAS (LEARN ANATOMY 3D STYLE) */}
         <div 
-          className="lg:col-span-5 bg-gradient-to-b from-slate-900/90 via-slate-950 to-slate-900 border rounded-3xl p-5 relative overflow-hidden flex flex-col justify-between shadow-2xl min-h-[500px]"
+          className="lg:col-span-5 bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 border-2 rounded-3xl p-5 relative overflow-hidden flex flex-col justify-between shadow-2xl min-h-[500px]"
           style={{
-            borderColor: `${activeItem.accentColor}50`,
-            boxShadow: `0 25px 80px rgba(0, 0, 0, 0.8), 0 0 40px ${activeItem.secondaryGlow}`
+            borderColor: '#ff007f',
+            boxShadow: '0 25px 60px rgba(0, 0, 0, 0.4), 0 0 35px rgba(255, 0, 128, 0.35)'
           }}
         >
           {/* Header Tag */}
           <div className="flex items-center justify-between z-10">
             <div>
               <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full animate-ping" style={{ background: activeItem.accentColor }} />
+                <span className="w-2.5 h-2.5 rounded-full animate-ping bg-pink-500" />
                 <span className="font-mono text-xs font-bold uppercase tracking-wider text-white">
                   3D Organ Resonance: {activeItem.organName}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400 mt-0.5">
+              <p className="text-[11px] text-slate-300 mt-0.5">
                 Target organ expands & emits bioluminescent bloom upon package selection.
               </p>
             </div>
@@ -363,7 +365,7 @@ export const DiseaseAnatomyResonanceArena: React.FC<DiseaseAnatomyResonanceArena
         </div>
 
         {/* RIGHT 7 COLS: STAGGERED TEST EXPLOSION & VACUUM TEST TUBES DRAWER */}
-        <div className="lg:col-span-7 bg-slate-900/80 border border-slate-800/90 rounded-3xl p-6 flex flex-col justify-between shadow-2xl backdrop-blur-xl">
+        <div className="lg:col-span-7 bg-white border border-slate-200 rounded-3xl p-6 flex flex-col justify-between shadow-lg">
           
           <AnimatePresence mode="wait">
             <motion.div
@@ -375,35 +377,34 @@ export const DiseaseAnatomyResonanceArena: React.FC<DiseaseAnatomyResonanceArena
               className="space-y-6"
             >
               {/* Header Info */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
                 <div>
                   <div className="flex items-center gap-2">
                     <span 
-                      className="px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-bold"
-                      style={{ background: `${activeItem.accentColor}20`, color: activeItem.accentColor, border: `1px solid ${activeItem.accentColor}40` }}
+                      className="px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-bold bg-pink-50 text-pink-700 border border-pink-200"
                     >
                       {activeItem.package.parametersCount} Parameters Included
                     </span>
-                    <span className="text-xs text-slate-400">· NABL ISO-15189 Verified</span>
+                    <span className="text-xs text-slate-500">· NABL ISO-15189 Verified</span>
                   </div>
-                  <h3 className="text-xl sm:text-2xl font-black text-white mt-1">
+                  <h3 className="text-xl sm:text-2xl font-black text-slate-900 mt-1">
                     {activeItem.package.name}
                   </h3>
                 </div>
 
                 <div className="flex items-baseline gap-2">
-                  <span className="text-3xl font-black text-white">₹{activeItem.package.price}</span>
+                  <span className="text-3xl font-black text-slate-900">₹{activeItem.package.price}</span>
                   {activeItem.package.old && (
-                    <span className="text-sm text-slate-500 line-through">₹{activeItem.package.old}</span>
+                    <span className="text-sm text-slate-400 line-through">₹{activeItem.package.old}</span>
                   )}
                 </div>
               </div>
 
               {/* VACUUM SAMPLE TEST TUBES WITH LIQUID MENISCUS ANIMATION */}
               <div>
-                <div className="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center justify-between">
+                <div className="text-xs font-mono font-bold text-slate-700 uppercase tracking-wider mb-3 flex items-center justify-between">
                   <span>Required Vacuum Sample Tubes</span>
-                  <span className="text-slate-500 font-normal">Dual Pathologist Verified</span>
+                  <span className="text-emerald-700 font-semibold">Dual Pathologist Verified</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -413,10 +414,10 @@ export const DiseaseAnatomyResonanceArena: React.FC<DiseaseAnatomyResonanceArena
                       initial={{ opacity: 0, scale: 0.9 }}
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ type: 'spring', stiffness: 300, damping: 25, delay: idx * 0.08 }}
-                      className="p-4 rounded-2xl bg-slate-950/70 border border-slate-800/80 flex items-center gap-4"
+                      className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center gap-4"
                     >
                       {/* Animated Test Tube Graphic */}
-                      <div className="w-7 h-12 rounded-b-xl rounded-t-sm border border-slate-700 relative overflow-hidden shrink-0 flex flex-col justify-end p-0.5 bg-slate-900">
+                      <div className="w-7 h-12 rounded-b-xl rounded-t-sm border border-slate-300 relative overflow-hidden shrink-0 flex flex-col justify-end p-0.5 bg-slate-200">
                         {/* Tube Cap */}
                         <div className="absolute top-0 left-0 right-0 h-3 rounded-t-sm shadow-sm" style={{ background: tube.color }} />
                         {/* Meniscus Fluid */}
@@ -427,13 +428,13 @@ export const DiseaseAnatomyResonanceArena: React.FC<DiseaseAnatomyResonanceArena
                           className="w-full rounded-b-lg relative"
                           style={{ background: tube.liquidHex }}
                         >
-                          <div className="w-full h-1 bg-white/30" />
+                          <div className="w-full h-1 bg-white/40" />
                         </motion.div>
                       </div>
 
                       <div className="truncate">
-                        <b className="text-xs font-bold text-white block truncate">{tube.label}</b>
-                        <span className="text-[10px] font-mono text-slate-400">{tube.type}</span>
+                        <b className="text-xs font-bold text-slate-900 block truncate">{tube.label}</b>
+                        <span className="text-[10px] font-mono text-slate-500">{tube.type}</span>
                       </div>
                     </motion.div>
                   ))}
@@ -442,9 +443,9 @@ export const DiseaseAnatomyResonanceArena: React.FC<DiseaseAnatomyResonanceArena
 
               {/* CONSTITUENT TESTS STAGGERED LIST */}
               <div>
-                <div className="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center justify-between">
+                <div className="text-xs font-mono font-bold text-slate-700 uppercase tracking-wider mb-3 flex items-center justify-between">
                   <span>Constituent Diagnostic Investigations</span>
-                  <span className="text-cyan-400 font-semibold">Beckman Coulter & Sysmex</span>
+                  <span className="text-pink-600 font-semibold">Beckman Coulter & Sysmex</span>
                 </div>
 
                 <div className="space-y-2">
@@ -454,21 +455,21 @@ export const DiseaseAnatomyResonanceArena: React.FC<DiseaseAnatomyResonanceArena
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ type: 'spring', stiffness: 350, damping: 25, delay: i * 0.06 }}
-                      className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800/70 hover:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
+                      className="p-3 rounded-2xl bg-slate-50 border border-slate-200 hover:border-pink-300 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
                     >
                       <div className="flex items-center gap-2.5">
-                        <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
+                        <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
                         <div>
-                          <b className="text-white block font-medium">{t.name}</b>
-                          <span className="text-[10.5px] text-slate-400">{t.clinicalMetric}</span>
+                          <b className="text-slate-900 block font-medium">{t.name}</b>
+                          <span className="text-[10.5px] text-slate-500">{t.clinicalMetric}</span>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-3 sm:justify-end text-[11px] font-mono">
-                        <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300">
+                        <span className="px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-700">
                           {t.tubeTag}
                         </span>
-                        <span className="text-emerald-400 font-bold">{t.referenceRange}</span>
+                        <span className="text-emerald-700 font-bold">{t.referenceRange}</span>
                       </div>
                     </motion.div>
                   ))}
@@ -477,34 +478,34 @@ export const DiseaseAnatomyResonanceArena: React.FC<DiseaseAnatomyResonanceArena
 
               {/* Fasting & Delivery Guarantee */}
               <div className="grid grid-cols-2 gap-3 pt-2 text-xs">
-                <div className="p-3 rounded-2xl bg-slate-950/50 border border-slate-800 flex items-center gap-2.5">
-                  <Clock3 size={16} className="text-amber-400 shrink-0" />
+                <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 flex items-center gap-2.5">
+                  <Clock3 size={16} className="text-amber-600 shrink-0" />
                   <div>
-                    <span className="text-[10px] text-slate-400 font-mono block">FASTING</span>
-                    <b className="text-white">{activeItem.package.fastingHours ? `${activeItem.package.fastingHours}h Overnight Fasting` : 'Non-Fasting OK'}</b>
+                    <span className="text-[10px] text-slate-500 font-mono block">FASTING</span>
+                    <b className="text-slate-900">{activeItem.package.fastingHours ? `${activeItem.package.fastingHours}h Overnight Fasting` : 'Non-Fasting OK'}</b>
                   </div>
                 </div>
 
-                <div className="p-3 rounded-2xl bg-slate-950/50 border border-slate-800 flex items-center gap-2.5">
-                  <Droplet size={16} className="text-emerald-400 shrink-0" />
+                <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 flex items-center gap-2.5">
+                  <Droplet size={16} className="text-emerald-600 shrink-0" />
                   <div>
-                    <span className="text-[10px] text-slate-400 font-mono block">TAT REPORT</span>
-                    <b className="text-emerald-400">{activeItem.package.tat || 'Within 6 Hours'}</b>
+                    <span className="text-[10px] text-slate-500 font-mono block">TAT REPORT</span>
+                    <b className="text-emerald-700">{activeItem.package.tat || 'Within 6 Hours'}</b>
                   </div>
                 </div>
               </div>
 
               {/* 1-Click Booking Action Bar */}
-              <div className="pt-4 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="flex items-center gap-2 text-xs text-slate-400">
-                  <ShieldCheck size={16} className="text-cyan-400" />
+              <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-2 text-xs text-slate-600">
+                  <ShieldCheck size={16} className="text-emerald-600" />
                   <span>Free Home Sample Collection Waiver Included</span>
                 </div>
 
                 <button
                   type="button"
                   onClick={() => onAddToCart(activeItem.package)}
-                  className="w-full sm:w-auto px-8 py-3.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-black text-sm flex items-center justify-center gap-2 shadow-xl shadow-cyan-500/25 active:scale-95 transition-all"
+                  className="w-full sm:w-auto px-8 py-3.5 rounded-2xl bg-gradient-to-r from-pink-600 to-rose-500 hover:from-pink-500 hover:to-rose-400 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-pink-500/30 active:scale-95 transition-all"
                 >
                   Book Package Now (₹{activeItem.package.price}) <ArrowRight size={17} />
                 </button>
