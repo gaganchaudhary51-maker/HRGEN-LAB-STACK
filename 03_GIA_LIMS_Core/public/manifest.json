@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json.schemastore.org/web-manifest.json",
+  "id": "/app?id=hrgen-gia-lims",
+  "name": "HRGen GIA LIMS — Laboratory Operating System",
+  "short_name": "GIA LIMS",
+  "description": "High-integrity clinical laboratory operating system with 6-rule Westgard statistical QC, ASTM/HL7 MLLP analyzer connectivity, and 21 CFR Part 11 cryptographic audit trails.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui"
+  ],
+  "background_color": "#080a0f",
+  "theme_color": "#080a0f",
+  "orientation": "any",
+  "lang": "en-IN",
+  "dir": "ltr",
+  "categories": [
+    "medical",
+    "productivity",
+    "business"
+  ],
+  "launch_handler": {
+    "client_mode": [
+      "navigate-existing",
+      "auto"
+    ]
+  },
+  "shortcuts": [
+    {
+      "name": "Direct Accessioning & Inward",
+      "short_name": "Direct Inward",
+      "url": "/#opd",
+      "description": "Fast 15-second patient registration, test basket, and tube accessioning"
+    },
+    {
+      "name": "Billing POS",
+      "short_name": "Billing",
+      "url": "/#billing",
+      "description": "Generate patient invoice and thermal barcode labels"
+    },
+    {
+      "name": "Result Workbench",
+      "short_name": "Results",
+      "url": "/#worklist",
+      "description": "Clinical result entry and validation"
+    },
+    {
+      "name": "QC / Westgard Engine",
+      "short_name": "Westgard QC",
+      "url": "/#qc",
+      "description": "6-rule statistical quality control and Levey-Jennings trends"
+    }
+  ],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192-maskable.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

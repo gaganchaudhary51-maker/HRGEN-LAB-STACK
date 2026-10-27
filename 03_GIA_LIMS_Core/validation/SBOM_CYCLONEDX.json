@@ -1,0 +1,88 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.5",
+  "serialNumber": "urn:uuid:hrgen-gia-lims-6.0.0-77build",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-10-08T09:10:41.861656+00:00",
+    "component": {
+      "type": "application",
+      "name": "hrgen-gia-lims",
+      "version": "6.0.0"
+    }
+  },
+  "components": [
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/cors@2.8.5",
+      "group": "npm",
+      "name": "cors",
+      "version": "2.8.5",
+      "scope": "required",
+      "purl": "pkg:npm/cors@2.8.5"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/express@4.21.2",
+      "group": "npm",
+      "name": "express",
+      "version": "4.21.2",
+      "scope": "required",
+      "purl": "pkg:npm/express@4.21.2"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/qrcode@1.5.4",
+      "group": "npm",
+      "name": "qrcode",
+      "version": "1.5.4",
+      "scope": "required",
+      "purl": "pkg:npm/qrcode@1.5.4"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/pg@8.16.3",
+      "group": "npm",
+      "name": "pg",
+      "version": "8.16.3",
+      "scope": "required",
+      "purl": "pkg:npm/pg@8.16.3"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/bcryptjs@3.0.2",
+      "group": "npm",
+      "name": "bcryptjs",
+      "version": "3.0.2",
+      "scope": "required",
+      "purl": "pkg:npm/bcryptjs@3.0.2"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/nodemon@3.1.9",
+      "group": "npm",
+      "name": "nodemon",
+      "version": "3.1.9",
+      "scope": "optional",
+      "purl": "pkg:npm/nodemon@3.1.9"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/vitest@3.2.4",
+      "group": "npm",
+      "name": "vitest",
+      "version": "3.2.4",
+      "scope": "optional",
+      "purl": "pkg:npm/vitest@3.2.4"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/@playwright/test@1.55.0",
+      "group": "npm",
+      "name": "@playwright/test",
+      "version": "1.55.0",
+      "scope": "optional",
+      "purl": "pkg:npm/@playwright/test@1.55.0"
+    }
+  ]
+}

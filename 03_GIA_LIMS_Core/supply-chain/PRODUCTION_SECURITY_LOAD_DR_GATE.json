@@ -1,0 +1,70 @@
+{
+  "timestamp": "2026-10-08T10:05:40.327268+00:00",
+  "status": "PARTIALLY_VERIFIED",
+  "checks": [
+    {
+      "control": "77-feature-verifier",
+      "status": "PASS"
+    },
+    {
+      "control": "QA_QC_BREAK_IT_86",
+      "status": "PASS"
+    },
+    {
+      "control": "Postgres-RLS-FORCE",
+      "status": "PASS-static"
+    },
+    {
+      "control": "backup-integrity-hash",
+      "status": "PASS-static"
+    },
+    {
+      "control": "pre-restore-snapshot",
+      "status": "PASS-static"
+    },
+    {
+      "control": "backup-admin-only",
+      "status": "PASS-static"
+    },
+    {
+      "control": "backup-persistent-volume",
+      "status": "PASS-static"
+    },
+    {
+      "control": "request-body-limit-512kb",
+      "status": "PASS-static"
+    },
+    {
+      "control": "login-rate-limit-10-per-15m",
+      "status": "PASS-static"
+    },
+    {
+      "control": "production-secret-fail-closed",
+      "status": "PASS-static"
+    },
+    {
+      "control": "no-new-privileges",
+      "status": "PASS-static"
+    },
+    {
+      "control": "read-only-container",
+      "status": "PASS-static"
+    },
+    {
+      "control": "network-runtime-load-test",
+      "status": "BLOCKED-runtime-dependencies-unavailable"
+    },
+    {
+      "control": "live-Postgres-restore-test",
+      "status": "BLOCKED-docker/runtime-unavailable"
+    },
+    {
+      "control": "chaos/failover-test",
+      "status": "BLOCKED-docker/runtime-unavailable"
+    }
+  ],
+  "blocking_items": [
+    "Runtime dependencies are not bundled in release; npm registry access timed out while generating package-lock.",
+    "Docker runtime unavailable in execution environment; live load, failover and PostgreSQL restore could not be executed."
+  ]
+}

@@ -1,0 +1,412 @@
+[
+  {
+    "filename": "GIA-hermes-agent-main.zip",
+    "path": "C:\\Users\\pc\\Desktop\\GIA-hermes-agent-main.zip",
+    "size_bytes": 80005587,
+    "size_mb": 76.3,
+    "sha256": "92400f51e02463745b00c9769f9fc53e0bf827b5d1eb9a69817550698d0b7187",
+    "file_count": 14641,
+    "crc32_valid": true,
+    "modified": "2026-10-21T06:37:44.880007"
+  },
+  {
+    "filename": "HRGen_Product_HQ_Vault.zip",
+    "path": "C:\\Users\\pc\\Desktop\\HRGen_Product_HQ_Vault.zip",
+    "size_bytes": 846848,
+    "size_mb": 0.81,
+    "sha256": "69144fa111d1f84a672e75192bd68513b7c2009b1ab94bea8d606295ad5f23f6",
+    "file_count": 47,
+    "crc32_valid": true,
+    "modified": "2026-10-24T14:53:01.039688"
+  },
+  {
+    "filename": "base_library.zip",
+    "path": "C:\\Users\\pc\\Desktop\\anti grevity gia ai\\GIA-ALL-IN-ONE-FINAL\\.desktop-build\\pyinstaller\\gia-backend\\base_library.zip",
+    "size_bytes": 1394319,
+    "size_mb": 1.33,
+    "sha256": "5ab8b8e79cf73255aee2ef5540a8192b5acebe61038c4fd001a76a9282f2264e",
+    "file_count": 155,
+    "crc32_valid": true,
+    "modified": "2026-10-24T12:05:13.680364"
+  },
+  {
+    "filename": "dr-shastri-diagnostics-dsd-care-eofn4i-1792319925194-src.zip",
+    "path": "C:\\Users\\pc\\Desktop\\DSD\\dr-shastri-diagnostics-dsd-care-eofn4i-1792319925194-src.zip",
+    "size_bytes": 32408848,
+    "size_mb": 30.91,
+    "sha256": "b5cc339ef0cca137e3a524cf08113f77eb11da60adf4610f20a0004c83d1bbd4",
+    "file_count": 88,
+    "crc32_valid": true,
+    "modified": "2026-10-24T15:05:20.525184"
+  },
+  {
+    "filename": "MediCare_Diagnostic_LIS_Installer_Pack.zip",
+    "path": "C:\\Users\\pc\\Desktop\\GAGAN\\dist_packages\\MediCare_Diagnostic_LIS_Installer_Pack.zip",
+    "size_bytes": 18562,
+    "size_mb": 0.02,
+    "sha256": "e83e467f96073dff8d3356f51b6fcee07dfbfed0fb9e8252a564fe5b4cf7cdc2",
+    "file_count": 11,
+    "crc32_valid": true,
+    "modified": "2026-10-20T18:04:24.949127"
+  },
+  {
+    "filename": "Security_Audit_Suite_Installer_Pack.zip",
+    "path": "C:\\Users\\pc\\Desktop\\GAGAN\\dist_packages\\Security_Audit_Suite_Installer_Pack.zip",
+    "size_bytes": 64964,
+    "size_mb": 0.06,
+    "sha256": "b3298e611c41b8dc4baa3a9136771dd1806c783e3d092ec019fb9b0196a8c1c6",
+    "file_count": 58,
+    "crc32_valid": true,
+    "modified": "2026-10-20T18:04:26.154958"
+  },
+  {
+    "filename": "agent-kit-main.zip",
+    "path": "C:\\Users\\pc\\Desktop\\GAGAN\\frontend skil plus jervis\\agent-kit-main.zip",
+    "size_bytes": 163693,
+    "size_mb": 0.16,
+    "sha256": "11d83d6950d3220b44604ffe2a0edc9f610b2591b21c8d86d7c81ae28c7a805c",
+    "file_count": 81,
+    "crc32_valid": true,
+    "modified": "2026-09-29T18:28:11.540747"
+  },
+  {
+    "filename": "claude-design-skills-main.zip",
+    "path": "C:\\Users\\pc\\Desktop\\GAGAN\\frontend skil plus jervis\\claude-design-skills-main.zip",
+    "size_bytes": 724416,
+    "size_mb": 0.69,
+    "sha256": "08c481925b5cf0d9a82f9e6c816b340b2208ac7193a31828cf267f7b067a6d46",
+    "file_count": 223,
+    "crc32_valid": true,
+    "modified": "2026-09-29T18:48:11.295497"
+  },
+  {
+    "filename": "motionstack-main.zip",
+    "path": "C:\\Users\\pc\\Desktop\\GAGAN\\frontend skil plus jervis\\motionstack-main.zip",
+    "size_bytes": 2646070,
+    "size_mb": 2.52,
+    "sha256": "3e0940bb7b393ce77a77a11aaddfd98c3ab3649cc399a13ce1a9522ca3031216",
+    "file_count": 1261,
+    "crc32_valid": true,
+    "modified": "2026-09-29T18:24:43.608322"
+  },
+  {
+    "filename": "r3f-skills-main.zip",
+    "path": "C:\\Users\\pc\\Desktop\\GAGAN\\frontend skil plus jervis\\r3f-skills-main.zip",
+    "size_bytes": 82863,
+    "size_mb": 0.08,
+    "sha256": "6814991bf7e2413e4c3deaca55484c517db37f4b87aed4762e24277c85a4c46b",
+    "file_count": 65,
+    "crc32_valid": true,
+    "modified": "2026-09-29T18:33:01.838493"
+  },
+  {
+    "filename": "storybook-next.zip",
+    "path": "C:\\Users\\pc\\Desktop\\GAGAN\\frontend skil plus jervis\\storybook-next.zip",
+    "size_bytes": 90788198,
+    "size_mb": 86.58,
+    "sha256": "c570bc4592687ec3bd0b6422f14af0a0926983b59a0d64400cc31b83f8559d4a",
+    "file_count": 10006,
+    "crc32_valid": true,
+    "modified": "2026-09-29T19:27:38.911450"
+  },
+  {
+    "filename": "threejs-skills-main.zip",
+    "path": "C:\\Users\\pc\\Desktop\\GAGAN\\frontend skil plus jervis\\threejs-skills-main.zip",
+    "size_bytes": 75694,
+    "size_mb": 0.07,
+    "sha256": "991d012f96e5a9ce9a51dcb89975d830d391355de000b4dfe9692a3182707abf",
+    "file_count": 58,
+    "crc32_valid": true,
+    "modified": "2026-09-29T18:34:12.017575"
+  },
+  {
+    "filename": "agent-kit-main.zip",
+    "path": "C:\\Users\\pc\\Desktop\\GAGAN\\_extracted\\frontend skil plus jervis\\frontend skil plus jervis\\agent-kit-main.zip",
+    "size_bytes": 163693,
+    "size_mb": 0.16,
+    "sha256": "11d83d6950d3220b44604ffe2a0edc9f610b2591b21c8d86d7c81ae28c7a805c",
+    "file_count": 81,
+    "crc32_valid": true,
+    "modified": "2026-09-29T18:28:12"
+  },
+  {
+    "filename": "claude-design-skills-main.zip",
+    "path": "C:\\Users\\pc\\Desktop\\GAGAN\\_extracted\\frontend skil plus jervis\\frontend skil plus jervis\\claude-design-skills-main.zip",
+    "size_bytes": 724416,
+    "size_mb": 0.69,
+    "sha256": "08c481925b5cf0d9a82f9e6c816b340b2208ac7193a31828cf267f7b067a6d46",
+    "file_count": 223,
+    "crc32_valid": true,
+    "modified": "2026-09-29T18:48:12"
+  },
+  {
+    "filename": "motionstack-main.zip",
+    "path": "C:\\Users\\pc\\Desktop\\GAGAN\\_extracted\\frontend skil plus jervis\\frontend skil plus jervis\\motionstack-main.zip",
+    "size_bytes": 2646070,
+    "size_mb": 2.52,
+    "sha256": "3e0940bb7b393ce77a77a11aaddfd98c3ab3649cc399a13ce1a9522ca3031216",
+    "file_count": 1261,
+    "crc32_valid": true,
+    "modified": "2026-09-29T18:24:44"
+  },
+  {
+    "filename": "r3f-skills-main.zip",
+    "path": "C:\\Users\\pc\\Desktop\\GAGAN\\_extracted\\frontend skil plus jervis\\frontend skil plus jervis\\r3f-skills-main.zip",
+    "size_bytes": 82863,
+    "size_mb": 0.08,
+    "sha256": "6814991bf7e2413e4c3deaca55484c517db37f4b87aed4762e24277c85a4c46b",
+    "file_count": 65,
+    "crc32_valid": true,
+    "modified": "2026-09-29T18:33:02"
+  },
+  {
+    "filename": "storybook-next.zip",
+    "path": "C:\\Users\\pc\\Desktop\\GAGAN\\_extracted\\frontend skil plus jervis\\frontend skil plus jervis\\storybook-next.zip",
+    "size_bytes": 90788198,
+    "size_mb": 86.58,
+    "sha256": "c570bc4592687ec3bd0b6422f14af0a0926983b59a0d64400cc31b83f8559d4a",
+    "file_count": 10006,
+    "crc32_valid": true,
+    "modified": "2026-09-29T19:27:40"
+  },
+  {
+    "filename": "threejs-skills-main.zip",
+    "path": "C:\\Users\\pc\\Desktop\\GAGAN\\_extracted\\frontend skil plus jervis\\frontend skil plus jervis\\threejs-skills-main.zip",
+    "size_bytes": 75694,
+    "size_mb": 0.07,
+    "sha256": "991d012f96e5a9ce9a51dcb89975d830d391355de000b4dfe9692a3182707abf",
+    "file_count": 58,
+    "crc32_valid": true,
+    "modified": "2026-09-29T18:34:14"
+  },
+  {
+    "filename": "GIA-ALL-IN-ONE-FINAL.zip",
+    "path": "C:\\Users\\pc\\Desktop\\GIA_JARVIS_AI\\GIA-ALL-IN-ONE-FINAL.zip",
+    "size_bytes": 65356097,
+    "size_mb": 62.33,
+    "sha256": "109a646370e5bc2e922854add8423361a100a44edd4a354855630597101c394f",
+    "file_count": 19527,
+    "crc32_valid": true,
+    "modified": "2026-10-24T10:32:10.953661"
+  },
+  {
+    "filename": "GIA-v14-CANONICAL-WORKTREE-SINGLE (8).zip",
+    "path": "C:\\Users\\pc\\Desktop\\GIA_JARVIS_AI\\GIA-v14-CANONICAL-WORKTREE-SINGLE (8).zip",
+    "size_bytes": 318356,
+    "size_mb": 0.3,
+    "sha256": "a75db284c18d6e37db509375db081919a48ac4bcb09aa977a3263ce30d58dc8c",
+    "file_count": 238,
+    "crc32_valid": true,
+    "modified": "2026-10-24T05:31:35.393285"
+  },
+  {
+    "filename": "hermes-skills.zip",
+    "path": "C:\\Users\\pc\\Desktop\\hermes\\HP_SYNC_PACKAGE\\hermes-skills.zip",
+    "size_bytes": 2071102,
+    "size_mb": 1.98,
+    "sha256": "5ee4a0cf5384461d69ffb38aa63cd3b5163fb0c3a91e37d8ead3c08af0f4d54c",
+    "file_count": 343,
+    "crc32_valid": true,
+    "modified": "2026-09-12T23:17:42.604493"
+  },
+  {
+    "filename": "opencode-full.zip",
+    "path": "C:\\Users\\pc\\Desktop\\hermes\\HP_SYNC_PACKAGE\\opencode-full.zip",
+    "size_bytes": 1095976,
+    "size_mb": 1.05,
+    "sha256": "c796b63a7f4add8c9e7cd744321f14f70559838120476c5e2d3fdb17a1fd6cbb",
+    "file_count": 312,
+    "crc32_valid": true,
+    "modified": "2026-09-12T23:17:42.123935"
+  },
+  {
+    "filename": "HRGen_AI_Studio.zip",
+    "path": "C:\\Users\\pc\\Desktop\\hermes\\hrgen digi tech\\HRGen_AI_Studio.zip",
+    "size_bytes": 628804,
+    "size_mb": 0.6,
+    "sha256": "169781a78e0b50aea446930b1397454c1bf8fdb772fce5afe5d9e69520fc1ad1",
+    "file_count": 331,
+    "crc32_valid": true,
+    "modified": "2026-10-21T07:21:52.263166"
+  },
+  {
+    "filename": "DSD_Handover_2026-10-20.zip",
+    "path": "C:\\Users\\pc\\Desktop\\HRGEN digi tech web\\DSD_Handover_2026-10-20.zip",
+    "size_bytes": 7068720,
+    "size_mb": 6.74,
+    "sha256": "7744a9af27d6c02982a6c7a0661b6cdde60554cbd3d1791b1e34196299c226bd",
+    "file_count": 38,
+    "crc32_valid": true,
+    "modified": "2026-10-20T19:03:01.216911"
+  },
+  {
+    "filename": "DSD_Handover_2026-10-20_UPDATED.zip",
+    "path": "C:\\Users\\pc\\Desktop\\HRGEN digi tech web\\DSD_Handover_2026-10-20_UPDATED.zip",
+    "size_bytes": 11548587,
+    "size_mb": 11.01,
+    "sha256": "d26b6387d9ef0aaa930c7964d22f2c8da87e692ec3d5bab747ea8921ac66d86d",
+    "file_count": 55,
+    "crc32_valid": true,
+    "modified": "2026-10-20T19:09:50.682560"
+  },
+  {
+    "filename": "DSD_HRGen_Evidence_First_Marketing_Bundle.zip",
+    "path": "C:\\Users\\pc\\Desktop\\HRGEN digi tech web\\DSD_Handover_2026-10-20\\02_Evidence_First_Audit\\DSD_HRGen_Evidence_First_Marketing_Bundle.zip",
+    "size_bytes": 1473960,
+    "size_mb": 1.41,
+    "sha256": "70c0562ed14c7460b72253c07d637da5347d6e4a700eb1627494f2610c57be14",
+    "file_count": 30,
+    "crc32_valid": true,
+    "modified": "2026-10-19T00:42:57.176036"
+  },
+  {
+    "filename": "DSD_Website_Source_Files_Updated.zip",
+    "path": "C:\\Users\\pc\\Desktop\\HRGEN digi tech web\\DSD_Handover_2026-10-20\\03_Deployed_Website\\DSD_Website_Source_Files_Updated.zip",
+    "size_bytes": 2238620,
+    "size_mb": 2.13,
+    "sha256": "824a94ba5229e010383efb89e507ec2b3aa1ee2abab0f35c4bbf34971ccb386e",
+    "file_count": 15,
+    "crc32_valid": true,
+    "modified": "2026-10-20T19:09:25.977729"
+  },
+  {
+    "filename": "DSD_Website_Source_Snapshot.zip",
+    "path": "C:\\Users\\pc\\Desktop\\HRGEN digi tech web\\DSD_Handover_2026-10-20\\03_Deployed_Website\\DSD_Website_Source_Snapshot.zip",
+    "size_bytes": 2238717,
+    "size_mb": 2.14,
+    "sha256": "1ba12df3a8b5608d00c13c13bb218cba7088d367fef924dc6083811424fa0121",
+    "file_count": 20,
+    "crc32_valid": true,
+    "modified": "2026-10-20T18:27:44.173618"
+  },
+  {
+    "filename": "hrgen-digitech.zip",
+    "path": "C:\\Users\\pc\\Desktop\\hrgen updated product\\HRGEN GIA LIMS FINAL\\hrgen pwa\\hrgen-digitech.zip",
+    "size_bytes": 2027411,
+    "size_mb": 1.93,
+    "sha256": "4e2aea972758b7f88071128844c1b729f1101a2f0f124166602f7f49ebe4292f",
+    "file_count": 162,
+    "crc32_valid": true,
+    "modified": "2026-10-18T19:39:37.252929"
+  },
+  {
+    "filename": "source-baseline.zip",
+    "path": "C:\\Users\\pc\\Desktop\\hrgen updated product\\HRGEN GIA LIMS FINAL\\validation\\runtime-evidence\\premium-2026-10-18\\source-baseline.zip",
+    "size_bytes": 319134,
+    "size_mb": 0.3,
+    "sha256": "7c242e99737141379576fb45e85005aad51b55fc4953484d7b9d8995818f0d8b",
+    "file_count": 45,
+    "crc32_valid": true,
+    "modified": "2026-10-18T08:44:32.863907"
+  },
+  {
+    "filename": "validation-baseline.zip",
+    "path": "C:\\Users\\pc\\Desktop\\hrgen updated product\\HRGEN GIA LIMS FINAL\\validation\\runtime-evidence\\premium-2026-10-18\\validation-baseline.zip",
+    "size_bytes": 206980,
+    "size_mb": 0.2,
+    "sha256": "eb8fadf21ed838730fd83fd6e04dc992ba901b4b2c42d884b51f2e881c0087ff",
+    "file_count": 97,
+    "crc32_valid": true,
+    "modified": "2026-10-18T08:44:34.702624"
+  },
+  {
+    "filename": "hotel-standalone.zip",
+    "path": "C:\\Users\\pc\\Desktop\\hrgen updated product\\HRGEN_DIGITECH_BUILD_WORKSPACE\\hotel-standalone.zip",
+    "size_bytes": 18361560,
+    "size_mb": 17.51,
+    "sha256": "d77e5c6e0f18db70be22436cb60cf435acd317585f6bb41c740078dc4848ccad",
+    "file_count": 712,
+    "crc32_valid": true,
+    "modified": "2026-09-29T04:45:26.899511"
+  },
+  {
+    "filename": "medicare-standalone.zip",
+    "path": "C:\\Users\\pc\\Desktop\\hrgen updated product\\HRGEN_DIGITECH_BUILD_WORKSPACE\\medicare-standalone.zip",
+    "size_bytes": 18308091,
+    "size_mb": 17.46,
+    "sha256": "256880eb6ac439f5d1e3a71879d6eae852ac82db263cbf8a846f30b3184eea8b",
+    "file_count": 699,
+    "crc32_valid": true,
+    "modified": "2026-09-29T04:37:28.864489"
+  },
+  {
+    "filename": "pharmacy-standalone.zip",
+    "path": "C:\\Users\\pc\\Desktop\\hrgen updated product\\HRGEN_DIGITECH_BUILD_WORKSPACE\\pharmacy-standalone.zip",
+    "size_bytes": 18364851,
+    "size_mb": 17.51,
+    "sha256": "bee89adb979ddfb3d357b46d989fd3187b6a6887908f7e71861c9185f24d8235",
+    "file_count": 712,
+    "crc32_valid": true,
+    "modified": "2026-09-29T04:45:15.088592"
+  },
+  {
+    "filename": "hrgen-launch.zip",
+    "path": "C:\\Users\\pc\\Desktop\\hrgen updated product\\HRGEN_DIGITECH_BUILD_WORKSPACE\\launch-artifacts\\hrgen-launch.zip",
+    "size_bytes": 445629,
+    "size_mb": 0.42,
+    "sha256": "a49dbf6868d2c3607ff94b69d17f8223accea8d3f15e8ba5b3c2440258017b9e",
+    "file_count": 22,
+    "crc32_valid": true,
+    "modified": "2026-10-19T01:17:23.330696"
+  },
+  {
+    "filename": "asset_b2b_hunter_v1.zip",
+    "path": "C:\\Users\\pc\\Desktop\\hrgen updated product\\HRGEN_DIGITECH_BUILD_WORKSPACE\\storage\\downloads\\asset_b2b_hunter_v1.zip",
+    "size_bytes": 5679243,
+    "size_mb": 5.42,
+    "sha256": "36db55bd299bd0f77f5efa7e76d05199d138bee0de2bff1be456fe74af120b61",
+    "file_count": 11,
+    "crc32_valid": true,
+    "modified": "2026-09-24T11:08:11.410198"
+  },
+  {
+    "filename": "asset_hermes_voice_v1.zip",
+    "path": "C:\\Users\\pc\\Desktop\\hrgen updated product\\HRGEN_DIGITECH_BUILD_WORKSPACE\\storage\\downloads\\asset_hermes_voice_v1.zip",
+    "size_bytes": 9572,
+    "size_mb": 0.01,
+    "sha256": "cdd2715f446cd12a5117caccc38ea96514b82f40575b6ca613de8267a603f49f",
+    "file_count": 5,
+    "crc32_valid": true,
+    "modified": "2026-09-24T11:08:14.692951"
+  },
+  {
+    "filename": "asset_n8n_workflows_v2.zip",
+    "path": "C:\\Users\\pc\\Desktop\\hrgen updated product\\HRGEN_DIGITECH_BUILD_WORKSPACE\\storage\\downloads\\asset_n8n_workflows_v2.zip",
+    "size_bytes": 7627,
+    "size_mb": 0.01,
+    "sha256": "b7e2f6ac24d29e4279f2239d8e4196aab130ff9fdec33ba4af4310ae67541fbb",
+    "file_count": 12,
+    "crc32_valid": true,
+    "modified": "2026-09-24T11:08:09.470721"
+  },
+  {
+    "filename": "asset_pwa_bundle_v4.zip",
+    "path": "C:\\Users\\pc\\Desktop\\hrgen updated product\\HRGEN_DIGITECH_BUILD_WORKSPACE\\storage\\downloads\\asset_pwa_bundle_v4.zip",
+    "size_bytes": 9347,
+    "size_mb": 0.01,
+    "sha256": "0867f67bd3ae673db9a112fdc5e4db50fa15356e1f74a242cf897a1292967200",
+    "file_count": 7,
+    "crc32_valid": true,
+    "modified": "2026-09-24T11:08:13.635683"
+  },
+  {
+    "filename": "asset_whatsapp_suite_v3.zip",
+    "path": "C:\\Users\\pc\\Desktop\\hrgen updated product\\HRGEN_DIGITECH_BUILD_WORKSPACE\\storage\\downloads\\asset_whatsapp_suite_v3.zip",
+    "size_bytes": 12285,
+    "size_mb": 0.01,
+    "sha256": "be245e4629c36f8dec4bfe1bf6b333f8e1182d05e41ba57d0e3ed403a071ec07",
+    "file_count": 7,
+    "crc32_valid": true,
+    "modified": "2026-09-24T11:08:12.558445"
+  },
+  {
+    "filename": "lis.zip",
+    "path": "C:\\Users\\pc\\Desktop\\hrgen updated product\\lis\\lis.zip",
+    "size_bytes": 157711030,
+    "size_mb": 150.4,
+    "sha256": "ac92f98504fef7a9ea1a41284767443fdb99f4b00c0837516a3147dcb121351e",
+    "file_count": 5242,
+    "crc32_valid": true,
+    "modified": "2026-10-18T02:29:59.111669"
+  }
+]

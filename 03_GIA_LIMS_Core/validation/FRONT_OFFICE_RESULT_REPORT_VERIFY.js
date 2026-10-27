@@ -1,0 +1,25 @@
+'use strict';
+const fs=require('fs');
+const assert=require('assert');
+const server=fs.readFileSync('server.js','utf8');
+const platform=fs.readFileSync('server/platformRoutes.js','utf8');
+const html=fs.readFileSync('public/index.html','utf8');
+const normalizer=fs.readFileSync('server/services/resultNormalization.js','utf8');
+const checks=[];
+function check(name,fn){try{fn();checks.push({name,result:'PASS'});console.log('PASS',name)}catch(e){checks.push({name,result:'FAIL',error:e.message});console.error('FAIL',name,e.message)}}
+check('New bill accepts server-calculated partial payment',()=>{assert.match(server,/const paidAmount = Number\(requestedPaidAmount\.toFixed\(2\)\)/);assert.match(server,/paidAmount,\s*balanceDue,\s*paymentStatus:/);assert.match(server,/paymentStatus: balanceDue === 0 \? 'PAID' : paidAmount > 0 \? 'PARTIAL' : 'DUE'/)});
+check('Paid amount is bounded between zero and net payable',()=>assert.match(server,/paidAmount must be between 0 and the net payable amount/));
+check('Invoice tests carry server catalogue prices',()=>{assert.match(server,/return normalizeNewOrderTest\(t, catalogItem\)/);assert.match(normalizer,/price: Number\(catalogItem\.price\) \|\| 0/)});
+check('Billing UI selects a registered patient and catalogue tests',()=>{assert.match(html,/billingPatientId/);assert.match(html,/renderBillingCatalog/);assert.match(html,/billingAddTest/)});
+check('Billing UI sends payment amount and selected tests',()=>{assert.match(html,/paidAmount:Number\(f\.get\('paidAmount'\)\|\|0\)/);assert.match(html,/S\.billingBasket\|\|\[\]/)});
+check('Structured result entry includes units, ranges, method and flags',()=>{for(const token of ['resultEntryForm','Reference interval','method_','status_','resultEntryForm'])assert.ok(html.includes(token),token)});
+check('Unentered results remain Pending and never default to Normal',()=>{assert.match(server,/return normalizeNewOrderTest\(t, catalogItem\)/);assert.match(server,/return normalizeEnteredResult\(t, catalogItem, evaluatePanic\)/);assert.match(normalizer,/hasResult && RESULT_STATUSES\.has\(input\?\.status\) \? input\.status : 'Pending'/);assert.doesNotMatch(server,/status: hasResult &&/);assert.match(html,/status:value\?String\(f\.get\('status_'\+i\)\|\|'Pending'\):'Pending'/)});
+check('Result save cannot omit, add, or duplicate accession tests',()=>{assert.match(server,/Result test set must exactly match the accession test set/);assert.match(server,/submittedSortedCodes\.length !== orderedCodes\.length/)});
+check('Lab profile persists letterhead and authorized signer metadata',()=>{for(const field of ['address','phone','email','nablReg','pathologistName','pathologistQualification','pathologistRegistration','signatureName'])assert.ok(platform.includes(`${field}:text(req.body?.${field}`),field)});
+check('Report preview prints lab letterhead and reference intervals',()=>{assert.match(html,/async function printOrder/);assert.match(html,/b\.address/);assert.match(html,/Reference interval/);assert.match(html,/DRAFT REPORT — NOT FOR CLINICAL USE/)});
+check('Billing invoice/receipt prints line items and paid/due totals',()=>{assert.match(html,/async function printBill/);assert.match(html,/Balance due/);assert.match(html,/Patient Invoice \/ Receipt/)});
+check('Released report snapshots lock the configured lab letterhead',()=>{assert.match(server,/order\.reportSnapshot\.lab = \{/);assert.match(server,/getPlatformRecord\(tenantOf\(req\),'branding','CURRENT'\)/);assert.match(html,/o\.reportSnapshot\?\.lab/)});
+check('Validated/released results remain immutable in UI and API',()=>{assert.match(html,/Validated\/released report is immutable/);assert.match(server,/Released\/validated reports are immutable/)});
+const failed=checks.filter(x=>x.result!=='PASS');
+console.log(`FRONT_OFFICE_RESULT_REPORT_VERIFY ${checks.length-failed.length}/${checks.length} PASS`);
+if(failed.length)process.exit(1);

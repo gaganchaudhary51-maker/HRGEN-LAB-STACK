@@ -1,0 +1,9 @@
+{
+  "build": "v6.0.0-77BUILD",
+  "date": "2026-10-06",
+  "featureSurface": {"ready": 77, "count": 77},
+  "forensic": {"primary": "36/36 PASS", "cross": "25/25 PASS", "combined": "PASS"},
+  "smoke": {"formula": "PASS", "hl7": "PASS", "fhir": "PASS", "ed25519_license": "PASS"},
+  "runtime": {"oq": "TARGET_ENVIRONMENT_REQUIRED", "pq": "TARGET_ENVIRONMENT_REQUIRED", "uat": "TARGET_ENVIRONMENT_REQUIRED"},
+  "release": "BLOCKED_PENDING_TARGET_ENVIRONMENT_VALIDATION"
+}

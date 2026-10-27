@@ -1,0 +1,46 @@
+{
+  "timestamp": "2026-10-08T10:16:21.271Z",
+  "protocol": "HRGen Production Validation Harness v1",
+  "checks": [
+    {
+      "name": "node-runtime",
+      "status": "PASS",
+      "detail": "v22.16.0"
+    },
+    {
+      "name": "docker-runtime",
+      "status": "BLOCKED",
+      "detail": "Docker daemon unavailable"
+    },
+    {
+      "name": "postgres-runtime",
+      "status": "BLOCKED",
+      "detail": "PostgreSQL runtime unavailable"
+    },
+    {
+      "name": "static-production-gates",
+      "status": "PASS",
+      "detail": "gate manifest present"
+    },
+    {
+      "name": "node-dependencies",
+      "status": "BLOCKED",
+      "detail": "dependencies are not bundled; run npm ci in target runtime"
+    },
+    {
+      "name": "network-load-test",
+      "status": "BLOCKED",
+      "detail": "Node dependencies unavailable"
+    },
+    {
+      "name": "postgres-backup-restore",
+      "status": "BLOCKED",
+      "detail": "PostgreSQL runtime unavailable"
+    },
+    {
+      "name": "chaos-failover",
+      "status": "BLOCKED",
+      "detail": "Docker runtime unavailable"
+    }
+  ]
+}

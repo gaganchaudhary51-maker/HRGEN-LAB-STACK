@@ -1,0 +1,22 @@
+{
+  "phase": "B",
+  "releaseRule": "No claim without executed evidence",
+  "results": {
+    "phaseBVerifier": {"status": "PASS", "checks": 65},
+    "phaseBFuzz": {"status": "PASS", "checks": 50000},
+    "build77": {"status": "PASS", "checks": 77},
+    "forensic": {"status": "PASS", "checks": 36},
+    "crossForensic": {"status": "PASS", "checks": 25},
+    "qaQcBreakIt": {"status": "PASS", "checks": 86},
+    "phaseARegression": {"status": "PASS", "checks": 18},
+    "jsSyntax": {"status": "PASS", "files": 24},
+    "staticHttp": {"status": "PASS", "http": 200},
+    "htmlParse": {"status": "PASS", "duplicateIds": 0}
+  },
+  "runtimeBoundary": {
+    "npmInstall": "TIMED_OUT",
+    "vitest": "BLOCKED_NO_NODE_MODULES",
+    "postgresql": "NOT_AVAILABLE_IN_EXECUTION_ENVIRONMENT",
+    "liveOqPqUat": "NOT_EXECUTED"
+  }
+}

@@ -1,0 +1,88 @@
+{
+  "p": {
+    "id": "PT-9718401811",
+    "uhid": "APX-2026-FB97184",
+    "title": "Mr.",
+    "name": "Rahul Sharma",
+    "age": 42,
+    "ageExact": {
+      "years": 42,
+      "months": 4,
+      "days": 12,
+      "display": "42Y 4M 12D"
+    },
+    "gender": "Male",
+    "phone": "9718401811",
+    "referredBy": "Dr. A. K. Verma, MD (Consultant Physician)",
+    "type": "Walk-in"
+  },
+  "pricing": {
+    "lines": [
+      {
+        "code": "CBC",
+        "name": "Complete Blood Count (CBC - 24 Parameters)",
+        "qty": 1,
+        "unitPrice": 350
+      },
+      {
+        "code": "FBS",
+        "name": "Fasting Blood Sugar (Glucose)",
+        "qty": 1,
+        "unitPrice": 100
+      },
+      {
+        "code": "HBA1C",
+        "name": "HbA1c Glycated Hemoglobin (HPLC)",
+        "qty": 1,
+        "unitPrice": 500
+      },
+      {
+        "code": "LIPID-PROF",
+        "name": "Lipid Profile Comprehensive (Chol, TG, HDL, LDL, VLDL)",
+        "qty": 1,
+        "unitPrice": 650
+      },
+      {
+        "code": "KFT",
+        "name": "Kidney Function Test (Urea, Creatinine, Uric Acid, BUN)",
+        "qty": 1,
+        "unitPrice": 550
+      },
+      {
+        "code": "LFT",
+        "name": "Liver Function Test (Bilirubin, SGOT, SGPT, ALP, Proteins)",
+        "qty": 1,
+        "unitPrice": 650
+      },
+      {
+        "code": "TSH",
+        "name": "Thyroid Stimulating Hormone (Ultra-Sensitive CLIA)",
+        "qty": 1,
+        "unitPrice": 350
+      },
+      {
+        "code": "VIT-D",
+        "name": "Vitamin D (25-OH Cholecalciferol Quantitative)",
+        "qty": 1,
+        "unitPrice": 1200
+      },
+      {
+        "code": "VIT-B12",
+        "name": "Vitamin B12 (Cyanocobalamin ECLIA)",
+        "qty": 1,
+        "unitPrice": 900
+      }
+    ],
+    "gross": 5250,
+    "discount": 787.5,
+    "discountType": "PERCENTAGE",
+    "discountValue": 15,
+    "net": 4462.5
+  },
+  "payment": {
+    "paid": 4000,
+    "balanceDue": 462.5,
+    "paymentStatus": "PARTIAL"
+  },
+  "labelsCount": 0
+}

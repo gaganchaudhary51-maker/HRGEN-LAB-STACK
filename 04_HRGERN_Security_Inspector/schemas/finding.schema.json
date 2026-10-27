@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["id", "title", "severity", "status", "description", "asset", "evidence", "remediation"],
+  "properties": {
+    "id": {"type": "string"},
+    "title": {"type": "string"},
+    "severity": {"enum": ["INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"]},
+    "status": {"enum": ["open", "accepted", "fixed", "retested"]},
+    "description": {"type": "string"},
+    "asset": {"type": "string"},
+    "evidence": {"type": "string"},
+    "remediation": {"type": "string"}
+  }
+}

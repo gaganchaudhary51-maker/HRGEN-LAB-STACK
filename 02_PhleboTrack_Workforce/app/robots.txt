@@ -1,0 +1,23 @@
+# HRGen PhleboTrack Robots Configuration
+# Optimized for Search Engine Crawlers & Answer Engine AI Bots (Perplexity, GPTBot, Google-Extended)
+User-agent: *
+Allow: /
+Allow: /booking
+Allow: /tests-catalog
+Allow: /locations
+Allow: /clsi-guidelines
+Disallow: /admin/
+Disallow: /api/v1/auth/
+Disallow: /telemetry/internal/
+
+# Generative AI Answer Engine Bots
+User-agent: GPTBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+Sitemap: https://phlebotrack.io/sitemap.xml

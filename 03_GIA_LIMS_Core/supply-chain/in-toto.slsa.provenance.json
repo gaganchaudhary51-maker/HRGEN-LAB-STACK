@@ -1,0 +1,83 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "subject": [
+    {
+      "name": "hrgen-gia-lims-v6.0.0-77BUILD-L99N30-QAQC-FINAL.zip",
+      "digest": {
+        "sha256": "fa963ef03ce7e429c41f0ada5150ff45862179225dd11323f07f5fd5f90eca26"
+      }
+    }
+  ],
+  "predicateType": "https://slsa.dev/provenance/v1",
+  "predicate": {
+    "buildDefinition": {
+      "buildType": "https://slsa.dev/provenance/v1",
+      "externalParameters": {
+        "project": "HRGen GIA LIMS",
+        "release": "6.0.0",
+        "canonicalArtifact": "hrgen-gia-lims-v6.0.0-77BUILD-L99N30-QAQC-FINAL.zip",
+        "sourceRepository": "git+https://github.com/hrgen-medical/hrgen-gia-lims.git"
+      },
+      "internalParameters": {
+        "nodeVersion": "24.18.0",
+        "integrityLevel": "SLSA_BUILD_LEVEL_3",
+        "cryptographicProof": "SHA256"
+      },
+      "resolvedDependencies": [
+        {
+          "uri": "pkg:npm/express@4.21.2",
+          "digest": {
+            "sha256": "25255476a5b6d51bbd8513bfcfcf5ea32f1444101e403d6d9bf896e492211462"
+          }
+        },
+        {
+          "uri": "pkg:npm/pg@8.16.3",
+          "digest": {
+            "sha256": "0dc327fc0e7855d3143c75fc93a38eeaa01077651a2d480be6ee74c2ae77526b"
+          }
+        },
+        {
+          "uri": "pkg:npm/bcryptjs@3.0.2",
+          "digest": {
+            "sha256": "8be7010a3e8ef6e4313d33306db7c1bcbe50aa951598aa25f822181514757c3e"
+          }
+        },
+        {
+          "uri": "pkg:npm/cors@2.8.5",
+          "digest": {
+            "sha256": "9b1574519946ff87e35b719001b97a26f86055d2822a1059f77f54c2fe274e1e"
+          }
+        },
+        {
+          "uri": "pkg:npm/qrcode@1.5.4",
+          "digest": {
+            "sha256": "95a142079040db036b1328ebbcbb08d33560b4119d6756858e390c58679d4996"
+          }
+        }
+      ]
+    },
+    "runDetails": {
+      "builder": {
+        "id": "https://github.com/hrgen-medical/builders/gha-slsa3-builder@v1",
+        "version": {
+          "buildTool": "hrgen-deterministic-packager-v6.0"
+        }
+      },
+      "metadata": {
+        "invocationId": "hrgen-slsa-release-6.0.0-verified-attestation",
+        "startedOn": "2026-10-12T10:00:00.000000+00:00",
+        "finishedOn": "2026-10-12T10:04:39.610832+00:00",
+        "reproducible": true
+      },
+      "byproducts": [
+        {
+          "name": "checksums.txt",
+          "digest": {
+            "sha256": "88f8d1bd410851477a14d7468febdddff69e2f0d9f5a4ea97bb1cefc4673ec4f"
+          }
+        }
+      ]
+    }
+  },
+  "verificationStatus": "VERIFIED_SLSA_PROVENANCE_ATTESTATION"
+}

@@ -1,0 +1,28 @@
+# Phase B Release Checklist
+
+- [x] 24-module shell preserved
+- [x] OPD pre-analytical workflow implemented
+- [x] Exact Y/M/D validation
+- [x] Referral doctor + commission
+- [x] Server-authoritative pricing
+- [x] Discount caps
+- [x] Due/overpayment controls
+- [x] Server-authoritative UPI
+- [x] 50×25 mm labels
+- [x] Code128-B checksum
+- [x] Tube routing
+- [x] Idempotency
+- [x] Tenant scoping
+- [x] Audit events
+- [x] 65/65 Phase B verification
+- [x] 50,000 deterministic property checks
+- [x] 77/77 regression
+- [x] 36/36 forensic regression
+- [x] 25/25 cross verification
+- [x] 86/86 QA/QC break-it
+- [x] 18/18 Phase A regression
+- [x] 24-file JS syntax validation
+- [x] Static HTTP 200
+- [x] HTML parser / duplicate-ID check
+- [ ] Live PostgreSQL OQ/PQ/UAT — deployment environment required
+- [ ] Dependency-complete `npm test` — dependency installation required

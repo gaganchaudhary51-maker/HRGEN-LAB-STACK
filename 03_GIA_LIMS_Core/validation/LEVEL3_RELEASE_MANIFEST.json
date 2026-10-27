@@ -1,0 +1,9 @@
+{
+  "protocol": "U-aIBTP / L100X-L99N30",
+  "level": 3,
+  "scope": "enterprise analyzer integration hardening",
+  "fresh_verification": {"level3": "9/9 PASS", "phaseA": "18/18 PASS", "phaseB": "65/65 PASS", "phaseC": "34/34 PASS", "level1": "29/29 PASS", "level2": "23/23 PASS", "tenant": "4/4 PASS", "ux": "20/20 PASS", "cross": "25/25 PASS", "fuzz": "50000/50000 PASS", "level2_mutation": "5/5 KILLED", "phaseC_mutation": "8/8 KILLED", "deep_forensic_mutation": "4/4 PRECHECK PASS"},
+  "release_status": "QUALIFICATION-BUILD",
+  "production_status": "UNQUALIFIED_PENDING_TARGET_ENVIRONMENT",
+  "live_hardware_status": "NOT_EXECUTED"
+}

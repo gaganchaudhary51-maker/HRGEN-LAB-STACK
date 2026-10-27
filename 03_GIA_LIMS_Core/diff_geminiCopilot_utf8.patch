@@ -1,0 +1,236 @@
+﻿diff --git "a/D:\\HRGen LIMS\\HRGENLIMS\\HRGen-GIA-LIMS-PORTABLE-PRODUCTION-VAULT-2026\\server\\services\\geminiCopilot.js" "b/C:\\Users\\pc\\Desktop\\HRGEN GIA LIMS\\server\\services\\geminiCopilot.js"
+index 88d021b..2506f46 100644
+--- "a/D:\\HRGen LIMS\\HRGENLIMS\\HRGen-GIA-LIMS-PORTABLE-PRODUCTION-VAULT-2026\\server\\services\\geminiCopilot.js"	
++++ "b/C:\\Users\\pc\\Desktop\\HRGEN GIA LIMS\\server\\services\\geminiCopilot.js"	
+@@ -1,8 +1,12 @@
+ /**
+  * HRGen GIA LIMS ΓÇö Autonomous AI Diagnostic Copilot & Anomaly Detection
+  * Standard: 2026 Clinical Intelligence & GAMP 5 Human-In-The-Loop
++ * Non-Clinical Sandbox: Bilingual explanations and voice-dictation drafts only.
++ * Hard constraint: AI never approves QC, releases reports, or overrides clinical gates.
+  */
+ 
++const { GoogleGenAI, Type } = require('@google/genai');
++
+ function detectRuleAnomalies(tests = [], patient = {}, specimen = {}){
+   const testMap = new Map();
+   for(const t of tests){
+@@ -122,7 +126,7 @@ function buildFallbackSummaries(anomalies = [], tests = [], patient = {}){
+ }
+ 
+ /**
+- * Main evaluation entry point
++ * Main evaluation entry point - Non-Clinical Copilot Sandbox
+  */
+ async function evaluateCopilot(order = {}, patient = {}){
+   const tests = order.tests || [];
+@@ -130,42 +134,57 @@ async function evaluateCopilot(order = {}, patient = {}){
+   const anomalies = detectRuleAnomalies(tests, patient, specimen);
+   const summaries = buildFallbackSummaries(anomalies, tests, patient);
+ 
+-  // If Gemini API key is configured, optionally enrich with LLM
+   let aiModelUsed = 'GIA-CLINICAL-RULE-ENGINE';
+   let llmEnrichment = null;
+ 
+   if(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.length > 10){
+     try {
+-      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+-        method: 'POST',
+-        headers: { 'Content-Type': 'application/json' },
+-        body: JSON.stringify({
+-          contents: [{
+-            parts: [{
+-              text: `Act as a senior pathologist clinical decision support assistant. Review these lab results:
+-Patient: ${patient.name}, Age: ${patient.age}, Gender: ${patient.gender}
++      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
++      const prompt = `Act as a senior pathologist clinical decision support assistant in a non-clinical draft sandbox. Review these lab results:
++Patient: ${patient.name || 'Anonymous'}, Age: ${patient.age || 'Unknown'}, Gender: ${patient.gender || 'Unknown'}
+ Tests: ${JSON.stringify(tests.map(t => ({ code: t.code, name: t.name, value: t.value, unit: t.unit, status: t.status })))}
+ Rule anomalies found: ${JSON.stringify(anomalies)}
+ 
+-Respond in valid JSON format with keys:
+-"differentialInsight" (2-3 sentences for pathologist),
+-"patientExplanationHindi" (simple Hindi explanation),
+-"patientExplanationEnglish" (simple English explanation)`
+-            }]
+-          }],
+-          generationConfig: { responseMimeType: 'application/json' }
+-        })
+-      });
+-      if(resp.ok){
+-        const data = await resp.json();
+-        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+-        if(text){
+-          llmEnrichment = JSON.parse(text);
+-          aiModelUsed = 'gemini-2.5-flash';
++Respond strictly in valid JSON adhering to the schema. Include a professional differential observation for the reviewing pathologist, along with compassionate patient guidance in both simple Hindi and English.`;
++
++      const response = await ai.models.generateContent({
++        model: 'gemini-2.5-flash',
++        contents: prompt,
++        config: {
++          responseMimeType: 'application/json',
++          responseJsonSchema: {
++            type: Type.OBJECT,
++            properties: {
++              differentialInsight: {
++                type: Type.STRING,
++                description: '2-3 sentences of clinical observation for the reviewing pathologist'
++              },
++              patientExplanationHindi: {
++                type: Type.STRING,
++                description: 'Simple, compassionate explanation in Hindi for the patient'
++              },
++              patientExplanationEnglish: {
++                type: Type.STRING,
++                description: 'Simple, compassionate explanation in English for the patient'
++              },
++              riskLevel: {
++                type: Type.STRING,
++                enum: ['NORMAL', 'MONITOR', 'CRITICAL'],
++                description: 'Clinical priority level'
++              }
++            },
++            required: ['differentialInsight', 'patientExplanationHindi', 'patientExplanationEnglish', 'riskLevel']
++          }
+         }
++      });
++
++      if (response && response.text) {
++        llmEnrichment = JSON.parse(response.text);
++        aiModelUsed = 'gemini-2.5-flash';
+       }
+     } catch(err){
+-      // Graceful fallback to rule engine
++      // Graceful fallback to rule engine without throwing 500
++      aiModelUsed = 'GIA-CLINICAL-RULE-ENGINE (FALLBACK)';
+     }
+   }
+ 
+@@ -174,18 +193,125 @@ Respond in valid JSON format with keys:
+     evaluatedAt: new Date().toISOString(),
+     aiModel: aiModelUsed,
+     humanReviewRequired: true,
++    clinicalGateStatus: 'NON_CLINICAL_DRAFT_ONLY',
++    canApproveQC: false,
++    canReleaseReport: false,
+     anomaliesCount: anomalies.length,
+     anomalies,
+     pathologistReview: llmEnrichment?.differentialInsight || summaries.pathologistNote,
+     patientExplanation: {
+       hindi: llmEnrichment?.patientExplanationHindi || summaries.hindiSummary,
+       english: llmEnrichment?.patientExplanationEnglish || summaries.englishSummary
++    },
++    riskLevel: llmEnrichment?.riskLevel || (anomalies.some(a => a.severity === 'CRITICAL') ? 'CRITICAL' : anomalies.some(a => a.severity === 'HIGH') ? 'MONITOR' : 'NORMAL')
++  };
++}
++
++/**
++ * Non-clinical voice dictation draft generator using @google/genai structured outputs
++ */
++async function generateDictationDraft(transcript = '', catalog = []) {
++  const normText = String(transcript || '').trim();
++  let aiModelUsed = 'GIA-DICTATION-REGEX-ENGINE';
++  let draftedResults = null;
++
++  if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.length > 10) {
++    try {
++      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
++      const prompt = `Extract laboratory test observations from this voice dictation transcript in a non-clinical draft mode:
++Transcript: "${normText}"
++Available Lab Test Codes: ${JSON.stringify(catalog.map(c => ({ code: c.code, name: c.name, unit: c.unit })))}
++
++Respond in valid JSON adhering to the schema.`;
++
++      const response = await ai.models.generateContent({
++        model: 'gemini-2.5-flash',
++        contents: prompt,
++        config: {
++          responseMimeType: 'application/json',
++          responseJsonSchema: {
++            type: Type.OBJECT,
++            properties: {
++              extractedObservations: {
++                type: Type.ARRAY,
++                items: {
++                  type: Type.OBJECT,
++                  properties: {
++                    testCode: { type: Type.STRING },
++                    numericValue: { type: Type.NUMBER },
++                    unit: { type: Type.STRING },
++                    morphologyNote: { type: Type.STRING }
++                  },
++                  required: ['testCode', 'numericValue']
++                }
++              }
++            },
++            required: ['extractedObservations']
++          }
++        }
++      });
++
++      if (response && response.text) {
++        const parsed = JSON.parse(response.text);
++        draftedResults = parsed.extractedObservations;
++        aiModelUsed = 'gemini-2.5-flash';
++      }
++    } catch (err) {
++      // Graceful fallback to regex normalization
++    }
++  }
++
++  // Fallback if LLM is offline or not configured
++  if (!draftedResults) {
++    const aliases = {
++      'HEMOGLOBIN':'HB','HAEMOGLOBIN':'HB','HB':'HB','SUGAR':'FBS','GLUCOSE':'FBS','FASTING SUGAR':'FBS',
++      'TLC':'WBC','TOTAL LEUKOCYTE':'WBC','WBC':'WBC','PLATELET':'PLT','PLATELETS':'PLT','PLT':'PLT',
++      'CREATININE':'CREAT','CREAT':'CREAT','UREA':'UREA','BUN':'BUN','URIC ACID':'URIC_ACID',
++      'BILIRUBIN':'BILI_TOTAL','TOTAL BILIRUBIN':'BILI_TOTAL','CHOLESTEROL':'CHOL','LIPID':'CHOL'
++    };
++    let norm = normText.toLowerCase()
++      .replace(/\b(point|dashamlav)\b/g, '.')
++      .replace(/\bshunya\b/g, '0').replace(/\bek\b/g, '1').replace(/\bdo\b/g, '2').replace(/\bteen\b/g, '3')
++      .replace(/\bchar\b/g, '4').replace(/\bpaanch\b/g, '5').replace(/\bchhe\b/g, '6').replace(/\bsaat\b/g, '7')
++      .replace(/\baath\b/g, '8').replace(/\bnau\b/g, '9').replace(/\bdas\b/g, '10').replace(/\bgyarah\b/g, '11')
++      .replace(/\bbaarah\b/g, '12').replace(/\bterah\b/g, '13').replace(/\bchaudah\b/g, '14').replace(/\bpandrah\b/g, '15')
++      .replace(/\b(1\s+sau\s+bis|sau\s+bis|ek\s+sau\s+bis)\b/g, '120')
++      .replace(/\b(1\s+sau\s+das|sau\s+das|ek\s+sau\s+das)\b/g, '110')
++      .replace(/\b(1\s+sau|sau|ek\s+sau)\b/g, '100');
++
++    // Collapse spaces around decimal dot between digits
++    norm = norm.replace(/(\d+)\s*\.\s*(\d+)/g, (match, p1, p2) => p1 + '.' + p2);
++
++    draftedResults = [];
++    for (const m of norm.matchAll(/([A-Za-z][A-Za-z0-9_-]{0,20})\s*[:=]?\s*(-?\d+(?:\.\d+)?)/g)) {
++      const raw = m[1].toUpperCase(), n = Number(m[2]);
++      const mappedCode = aliases[raw] || raw;
++      const item = catalog.find(x => x.code === mappedCode || x.code === raw || (x.name && x.name.toUpperCase().startsWith(raw)));
++      draftedResults.push({
++        testCode: item ? item.code : mappedCode,
++        numericValue: n,
++        unit: item ? item.unit : '',
++        morphologyNote: ''
++      });
+     }
++  }
++
++  return {
++    rawTranscript: normText,
++    aiModelUsed,
++    humanReviewRequired: true,
++    confirmationRequiredBeforeSave: true,
++    clinicalGateStatus: 'NON_CLINICAL_DRAFT_ONLY',
++    canApproveQC: false,
++    canReleaseReport: false,
++    draftObservations: draftedResults
+   };
+ }
+ 
+ module.exports = {
+   detectRuleAnomalies,
+   buildFallbackSummaries,
+-  evaluateCopilot
++  evaluateCopilot,
++  generateDictationDraft
+ };
++

@@ -1,0 +1,86 @@
+[
+  {
+    "name": "Add a lead and retain its pipeline status",
+    "sanity": true,
+    "viewport": "desktop",
+    "covers": [
+      "operations hub navigation",
+      "lead management",
+      "lead status updates",
+      "local persistence"
+    ],
+    "description": "Verifies the operations hub can create a lead, change its stage, and retain the record locally after refresh.",
+    "steps": [
+      "Open Operations Hub from the DSD header",
+      "Add a lead with a business name and contact note",
+      "Change its stage to Contacted and refresh the page"
+    ],
+    "expected": "The lead appears in the pipeline with the updated stage after refresh."
+  },
+  {
+    "name": "Create a phlebo dispatch task without claiming live GPS",
+    "viewport": "mobile",
+    "covers": [
+      "phlebo dispatch queue",
+      "collector assignment",
+      "tracking status transparency",
+      "mobile operations layout"
+    ],
+    "description": "Verifies a collection task can be queued and assigned while live GPS is clearly marked as requiring integration.",
+    "steps": [
+      "Open Operations Hub on mobile",
+      "Create a collection task with a booking reference and area",
+      "Assign a collector and review tracking status"
+    ],
+    "expected": "The task is visible in the dispatch queue and shows GPS integration as pending rather than fabricated live coordinates."
+  },
+  {
+    "name": "Generate SEO/AEO/GEO content draft",
+    "viewport": "desktop",
+    "covers": [
+      "SEO manager",
+      "AEO FAQ draft",
+      "GEO local content",
+      "draft status"
+    ],
+    "description": "Verifies the SEO workspace creates an editable draft and distinguishes generated draft content from published changes.",
+    "steps": [
+      "Open the SEO/AEO/GEO workspace",
+      "Enter a target service and local area",
+      "Generate a content draft and review the title, description and FAQs"
+    ],
+    "expected": "An editable local content draft appears and the UI does not claim the page was published."
+  },
+  {
+    "name": "Queue an agent task and deployment checklist",
+    "viewport": "desktop",
+    "covers": [
+      "agent task queue",
+      "deployment checklist",
+      "automation run log"
+    ],
+    "description": "Verifies agent workflow actions are recorded as queued tasks and deployment checks can be marked reviewed.",
+    "steps": [
+      "Open Agent Control",
+      "Queue the SEO agent task",
+      "Open Deployment and complete a pre-release check"
+    ],
+    "expected": "The task is recorded with a queued status and checklist changes persist locally; no external deployment is claimed."
+  },
+  {
+    "name": "Reject an empty lead and preserve existing operations data",
+    "viewport": "mobile",
+    "covers": [
+      "lead validation",
+      "empty state guardrail",
+      "local persistence"
+    ],
+    "description": "Verifies empty lead submissions are blocked without erasing existing records.",
+    "steps": [
+      "Open Lead Management",
+      "Submit the new-lead form with required fields blank",
+      "Review the validation message and existing leads"
+    ],
+    "expected": "A validation message appears and no empty lead is added."
+  }
+]

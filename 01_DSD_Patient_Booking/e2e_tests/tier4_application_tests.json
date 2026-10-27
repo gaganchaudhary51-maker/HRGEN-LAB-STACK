@@ -1,0 +1,202 @@
+[
+  {
+    "id": "T4.APP.1",
+    "name": "Urban Corporate Executive Anemia & Metabolic Fatigue Journey",
+    "persona": "38-year-old corporate lead experiencing persistent fatigue, irregular sleep, and prolonged desk hours.",
+    "journeySteps": [
+      "1. Navigate to Vitality Assessment at #vitality-score",
+      "2. Complete Step 1: Age 30-45, Male, Sedentary, Poor Sleep & High Stress",
+      "3. Complete Step 2: Primary Symptom: Fatigue / Unexplained Weakness",
+      "4. Complete Step 3: Family History: None",
+      "5. Review Vitality Score (65/100, Moderate Vitality) and SVG Radial Dial with Amber Glow",
+      "6. Review Primary Match: Basic Weakness Package (₹2,730) vs Camp Alternative: DSD Smart Health Advance (₹499)",
+      "7. Review Dr. Shastri Clinical Explanations: CBC (Anemia/Hemogram) and LFT (Hepatic)",
+      "8. Click 'Add Camp Alternative to Cart - ₹499' (qty('smartadvance', 1))",
+      "9. Verify Cart Drawer reflects 1 item, total ₹499, and WhatsApp booking URL is formatted."
+    ],
+    "input": {
+      "ageGroup": "30-45",
+      "gender": "male",
+      "activityLevel": "sedentary",
+      "sleepStress": "poor_sleep_high_stress",
+      "symptoms": ["fatigue"],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "vitalityScore": 54,
+      "vitalityBracket": "Elevated Risk",
+      "primaryPackageId": "weakness",
+      "primaryPrice": 2730,
+      "campPackageId": "smartadvance",
+      "campPrice": 499,
+      "savingsAmount": 2231,
+      "savingsPercentage": 82,
+      "cartResult": { "smartadvance": 1 },
+      "totalPayable": 499
+    }
+  },
+  {
+    "id": "T4.APP.2",
+    "name": "Senior Citizen Hypertensive & Osteoarthritis Patient Journey",
+    "persona": "68-year-old retired patient with blood pressure concerns, joint stiffness, and maternal hypertension.",
+    "journeySteps": [
+      "1. Access portal via Hero CTA 'Take 60s Health Quiz ✨'",
+      "2. Step 1: Age 60+, Female, Moderate, Moderate Stress",
+      "3. Step 2: Symptoms: Blood Pressure Concerns + Joint Stiffness/Pain",
+      "4. Step 3: Family History: Hypertension",
+      "5. Radial Score Gauge animates with spring overshoot to 29/100 (Elevated Risk, Coral Glow)",
+      "6. Dual Cards display Hypertension Package (₹4,710, 76 params) alongside DSD Smart Health Advance (₹499)",
+      "7. Highlights Save ₹4,211 (89% OFF) and free ECG",
+      "8. Explanations highlight Lipid Profile, Vitamin D3, and KFT",
+      "9. User clicks 'Book Recommended Package' -> qty('hypertension', 1) -> bookingDrawer opens."
+    ],
+    "input": {
+      "ageGroup": "60+",
+      "gender": "female",
+      "activityLevel": "moderate",
+      "sleepStress": "moderate_stress",
+      "symptoms": ["bp_concerns", "joint_pain"],
+      "familyHistory": ["hypertension"]
+    },
+    "expected": {
+      "vitalityScore": 29,
+      "vitalityBracket": "Elevated Risk",
+      "primaryPackageId": "hypertension",
+      "primaryPrice": 4710,
+      "campPackageId": "smartadvance",
+      "campPrice": 499,
+      "savingsAmount": 4211,
+      "savingsPercentage": 89,
+      "cartResult": { "hypertension": 1 },
+      "totalPayable": 4710
+    }
+  },
+  {
+    "id": "T4.APP.3",
+    "name": "Early-Onset Glycemic Warning / Diabetic Workup Journey",
+    "persona": "32-year-old professional noticing polyuria and frequent thirst with strong family diabetes history.",
+    "journeySteps": [
+      "1. Complete assessment quiz answering thirst_urination and family diabetes",
+      "2. Engine computes Metabolic Risk: High (85%), Vitality Score: 48 (Elevated Risk)",
+      "3. Recommends Thyro-Diabetic Package (₹960) and DSD Smart Health Advance (₹499)",
+      "4. Explains HbA1c 3-month glycemic control without spot-test variability",
+      "5. 1-click add to cart synchronizes with WhatsApp booking details."
+    ],
+    "input": {
+      "ageGroup": "30-45",
+      "gender": "male",
+      "activityLevel": "sedentary",
+      "sleepStress": "moderate_stress",
+      "symptoms": ["thirst_urination"],
+      "familyHistory": ["diabetes"]
+    },
+    "expected": {
+      "vitalityScore": 48,
+      "vitalityBracket": "Elevated Risk",
+      "metabolicRisk": "High",
+      "primaryPackageId": "thyrodiabetes",
+      "primaryPrice": 960,
+      "campPackageId": "smartadvance",
+      "campPrice": 499,
+      "savingsAmount": 461,
+      "savingsPercentage": 48,
+      "cartResult": { "thyrodiabetes": 1 },
+      "totalPayable": 960
+    }
+  },
+  {
+    "id": "T4.APP.4",
+    "name": "Post-Menopausal Female Musculoskeletal & Vitamin D3 Journey",
+    "persona": "54-year-old female presenting with chronic knee discomfort and fatigue.",
+    "journeySteps": [
+      "1. Input age 46-60, joint stiffness/pain",
+      "2. Vitality engine computes score 68, Joint Risk High",
+      "3. Recommends Basic Joint Pain Package (₹875) vs DSD Smart Health Advance (₹499)",
+      "4. Explanations focus on Vitamin D3 bone mineral balance and CBC hemogram",
+      "5. Patient adds both joint package and Smart Health Advance to cart."
+    ],
+    "input": {
+      "ageGroup": "46-60",
+      "gender": "female",
+      "activityLevel": "moderate",
+      "sleepStress": "restful",
+      "symptoms": ["joint_pain"],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "vitalityScore": 68,
+      "vitalityBracket": "Moderate",
+      "jointRisk": "High",
+      "primaryPackageId": "joint",
+      "primaryPrice": 875,
+      "campPackageId": "smartadvance",
+      "campPrice": 499,
+      "savingsAmount": 376,
+      "cartResult": { "joint": 1, "smartadvance": 1 },
+      "totalPayable": 1374
+    }
+  },
+  {
+    "id": "T4.APP.5",
+    "name": "Asymptomatic Familial Renal Risk Screening Journey",
+    "persona": "48-year-old seeking routine checkup with family history of renal disease.",
+    "journeySteps": [
+      "1. Complete quiz with general_checkup and family kidney history",
+      "2. Vitality score: 78 (Moderate), Renal Risk: High",
+      "3. Recommends Renal Screening Package (₹175, 20 parameters) paired with Basic Health Pack (₹299)",
+      "4. Explains KFT glomerular filtration and creatinine monitoring",
+      "5. 1-click cart addition verified."
+    ],
+    "input": {
+      "ageGroup": "46-60",
+      "gender": "male",
+      "activityLevel": "moderate",
+      "sleepStress": "restful",
+      "symptoms": ["general_checkup"],
+      "familyHistory": ["kidney"]
+    },
+    "expected": {
+      "vitalityScore": 72,
+      "vitalityBracket": "Moderate",
+      "renalRisk": "High",
+      "primaryPackageId": "renal",
+      "primaryPrice": 175,
+      "campPackageId": "basiccamp",
+      "campPrice": 299,
+      "cartResult": { "renal": 1 },
+      "totalPayable": 175
+    }
+  },
+  {
+    "id": "T4.APP.6",
+    "name": "Annual Preventive Camp Seeker & Multi-Package Cart Workflow",
+    "persona": "26-year-old athlete seeking annual wellness audit and comparing savings.",
+    "journeySteps": [
+      "1. Input pristine young adult profile with general checkup",
+      "2. Vitality engine computes score 98 (Optimal Vitality, Emerald Glow)",
+      "3. Recommends Executive Full Body Checkup (₹999) paired with Basic Health Pack (₹299)",
+      "4. Highlights Save ₹700",
+      "5. Patient adds Basic Health Pack (₹299) and DSD Membership Card (₹19)",
+      "6. Verifies cart count = 2, total = ₹318, WhatsApp home collection link prepared."
+    ],
+    "input": {
+      "ageGroup": "18-29",
+      "gender": "male",
+      "activityLevel": "active",
+      "sleepStress": "restful",
+      "symptoms": ["general_checkup"],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "vitalityScore": 98,
+      "vitalityBracket": "Optimal",
+      "primaryPackageId": "executive",
+      "primaryPrice": 999,
+      "campPackageId": "basiccamp",
+      "campPrice": 299,
+      "savingsAmount": 700,
+      "cartResult": { "basiccamp": 1, "membership": 1 },
+      "totalPayable": 318
+    }
+  }
+]

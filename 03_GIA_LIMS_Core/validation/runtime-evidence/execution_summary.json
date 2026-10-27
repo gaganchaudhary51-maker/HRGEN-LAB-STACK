@@ -1,0 +1,101 @@
+[
+  {
+    "cmd": "npm run qa:all",
+    "logFile": "npm_qa_all.log",
+    "startIso": "2026-10-16T19:10:52.202Z",
+    "endIso": "2026-10-16T19:10:55.310Z",
+    "durationMs": 3108,
+    "exitCode": 0,
+    "status": "PASS"
+  },
+  {
+    "cmd": "npm run forensic",
+    "logFile": "npm_forensic.log",
+    "startIso": "2026-10-16T19:10:55.311Z",
+    "endIso": "2026-10-16T19:10:56.106Z",
+    "durationMs": 795,
+    "exitCode": 0,
+    "status": "PASS"
+  },
+  {
+    "cmd": "npm run build77",
+    "logFile": "npm_build77.log",
+    "startIso": "2026-10-16T19:10:56.106Z",
+    "endIso": "2026-10-16T19:10:56.891Z",
+    "durationMs": 785,
+    "exitCode": 0,
+    "status": "PASS"
+  },
+  {
+    "cmd": "npm run verify:final",
+    "logFile": "npm_verify_final.log",
+    "startIso": "2026-10-16T19:10:56.892Z",
+    "endIso": "2026-10-16T19:10:59.041Z",
+    "durationMs": 2149,
+    "exitCode": 0,
+    "status": "PASS"
+  },
+  {
+    "cmd": "npm test",
+    "logFile": "npm_test.log",
+    "startIso": "2026-10-16T19:10:59.043Z",
+    "endIso": "2026-10-16T19:11:02.115Z",
+    "durationMs": 3072,
+    "exitCode": 0,
+    "status": "PASS"
+  },
+  {
+    "cmd": "npx playwright test",
+    "logFile": "playwright_e2e.log",
+    "startIso": "2026-10-16T19:11:02.115Z",
+    "endIso": "2026-10-16T19:11:37.284Z",
+    "durationMs": 35169,
+    "exitCode": 0,
+    "status": "PASS"
+  },
+  {
+    "cmd": "node validation/TENANT_RLS_STATIC_VERIFY.js",
+    "logFile": "tenant_rls_static.log",
+    "startIso": "2026-10-16T19:11:37.285Z",
+    "endIso": "2026-10-16T19:11:37.414Z",
+    "durationMs": 129,
+    "exitCode": 0,
+    "status": "PASS"
+  },
+  {
+    "cmd": "node validation/CLINICAL_GATE_FIX_VERIFY.js",
+    "logFile": "clinical_gate_fix.log",
+    "startIso": "2026-10-16T19:11:37.415Z",
+    "endIso": "2026-10-16T19:11:37.531Z",
+    "durationMs": 116,
+    "exitCode": 0,
+    "status": "PASS"
+  },
+  {
+    "cmd": "node QA_QC_BREAK_IT.js",
+    "logFile": "qa_qc_break_it.log",
+    "startIso": "2026-10-16T19:11:37.531Z",
+    "endIso": "2026-10-16T19:11:37.650Z",
+    "durationMs": 119,
+    "exitCode": 0,
+    "status": "PASS"
+  },
+  {
+    "cmd": "node validation/RUN_LIVE_POSTGRES_RLS_SUITE.js",
+    "logFile": "live_postgres_rls_suite.log",
+    "startIso": "2026-10-16T19:11:37.652Z",
+    "endIso": "2026-10-16T19:12:11.201Z",
+    "durationMs": 33549,
+    "exitCode": 0,
+    "status": "PASS"
+  },
+  {
+    "cmd": "node validation/GEMINI_SANDBOX_VERIFY.js",
+    "logFile": "gemini_sandbox_verify.log",
+    "startIso": "2026-10-16T19:12:11.201Z",
+    "endIso": "2026-10-16T19:12:11.504Z",
+    "durationMs": 303,
+    "exitCode": 0,
+    "status": "PASS"
+  }
+]

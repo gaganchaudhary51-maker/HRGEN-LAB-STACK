@@ -1,0 +1,454 @@
+{
+  "patient": {
+    "uhid": "APX-2026-FB97184",
+    "title": "Mr.",
+    "name": "Rahul Sharma",
+    "phone": "9718401811",
+    "age": 42,
+    "ageExact": {
+      "years": 42,
+      "months": 4,
+      "days": 12,
+      "display": "42Y 4M 12D"
+    },
+    "gender": "Male",
+    "referredBy": "Dr. A. K. Verma, MD (Consultant Physician)"
+  },
+  "accessionNumber": "ACC-2026-971841",
+  "invoiceNumber": "INV-2026-971841",
+  "barcode": "APX-LAB-FB97184",
+  "pricing": {
+    "lines": [
+      {
+        "code": "CBC",
+        "name": "Complete Blood Count (CBC)",
+        "qty": 1,
+        "unitPrice": 350
+      },
+      {
+        "code": "FBS",
+        "name": "Fasting Blood Glucose",
+        "qty": 1,
+        "unitPrice": 100
+      },
+      {
+        "code": "HBA1C",
+        "name": "Glycated Hemoglobin (HbA1c - HPLC)",
+        "qty": 1,
+        "unitPrice": 500
+      },
+      {
+        "code": "CHOL",
+        "name": "Total Cholesterol",
+        "qty": 1,
+        "unitPrice": 200
+      },
+      {
+        "code": "TRIG",
+        "name": "Serum Triglycerides",
+        "qty": 1,
+        "unitPrice": 250
+      },
+      {
+        "code": "HDL",
+        "name": "HDL Cholesterol (Direct)",
+        "qty": 1,
+        "unitPrice": 250
+      },
+      {
+        "code": "CREAT",
+        "name": "Serum Creatinine",
+        "qty": 1,
+        "unitPrice": 200
+      },
+      {
+        "code": "UREA",
+        "name": "Blood Urea Nitrogen / Urea",
+        "qty": 1,
+        "unitPrice": 200
+      },
+      {
+        "code": "URIC_ACID",
+        "name": "Serum Uric Acid",
+        "qty": 1,
+        "unitPrice": 200
+      },
+      {
+        "code": "BILI_TOTAL",
+        "name": "Total Bilirubin",
+        "qty": 1,
+        "unitPrice": 150
+      },
+      {
+        "code": "SGOT",
+        "name": "SGOT / AST (Aspartate Aminotransferase)",
+        "qty": 1,
+        "unitPrice": 200
+      },
+      {
+        "code": "SGPT",
+        "name": "SGPT / ALT (Alanine Aminotransferase)",
+        "qty": 1,
+        "unitPrice": 200
+      },
+      {
+        "code": "ALP",
+        "name": "Alkaline Phosphatase (ALP)",
+        "qty": 1,
+        "unitPrice": 200
+      },
+      {
+        "code": "TSH",
+        "name": "TSH (Thyroid Stimulating Hormone CLIA)",
+        "qty": 1,
+        "unitPrice": 350
+      },
+      {
+        "code": "VIT-D",
+        "name": "Vitamin D 25-Hydroxy Total",
+        "qty": 1,
+        "unitPrice": 1200
+      },
+      {
+        "code": "VIT-B12",
+        "name": "Vitamin B12 (Cyanocobalamin ECLIA)",
+        "qty": 1,
+        "unitPrice": 900
+      }
+    ],
+    "gross": 5450,
+    "discount": 817.5,
+    "discountType": "PERCENTAGE",
+    "discountValue": 15,
+    "net": 4632.5
+  },
+  "payment": {
+    "paid": 4000,
+    "balanceDue": 632.5,
+    "paymentStatus": "PARTIAL"
+  },
+  "tubeLabels": [
+    {
+      "labelId": "LBL-ORD-FB97184-1",
+      "widthMm": 50,
+      "heightMm": 25,
+      "barcode": "APX-LAB-FB97184",
+      "patientName": "Rahul Sharma",
+      "uhid": "APX-2026-FB97184",
+      "age": "42Y 4M 12D",
+      "gender": "Male",
+      "tubeCode": "EDTA",
+      "tubeColor": "LAVENDER",
+      "sampleType": "EDTA WHOLE BLOOD",
+      "testCodes": [
+        "CBC"
+      ],
+      "testNames": [
+        "Complete Blood Count (CBC)"
+      ],
+      "printedAt": "2026-10-12T13:53:17.681Z"
+    },
+    {
+      "labelId": "LBL-ORD-FB97184-2",
+      "widthMm": 50,
+      "heightMm": 25,
+      "barcode": "APX-LAB-FB97184",
+      "patientName": "Rahul Sharma",
+      "uhid": "APX-2026-FB97184",
+      "age": "42Y 4M 12D",
+      "gender": "Male",
+      "tubeCode": "SERUM",
+      "tubeColor": "RED/GOLD",
+      "sampleType": "SERUM",
+      "testCodes": [
+        "FBS",
+        "HBA1C",
+        "CHOL",
+        "TRIG",
+        "HDL",
+        "CREAT",
+        "UREA",
+        "URIC_ACID",
+        "BILI_TOTAL",
+        "SGOT",
+        "ALP",
+        "TSH",
+        "VIT-D",
+        "VIT-B12"
+      ],
+      "testNames": [
+        "Fasting Blood Glucose",
+        "Glycated Hemoglobin (HbA1c - HPLC)",
+        "Total Cholesterol",
+        "Serum Triglycerides",
+        "HDL Cholesterol (Direct)",
+        "Serum Creatinine",
+        "Blood Urea Nitrogen / Urea",
+        "Serum Uric Acid",
+        "Total Bilirubin",
+        "SGOT / AST (Aspartate Aminotransferase)",
+        "Alkaline Phosphatase (ALP)",
+        "TSH (Thyroid Stimulating Hormone CLIA)",
+        "Vitamin D 25-Hydroxy Total",
+        "Vitamin B12 (Cyanocobalamin ECLIA)"
+      ],
+      "printedAt": "2026-10-12T13:53:17.681Z"
+    },
+    {
+      "labelId": "LBL-ORD-FB97184-3",
+      "widthMm": 50,
+      "heightMm": 25,
+      "barcode": "APX-LAB-FB97184",
+      "patientName": "Rahul Sharma",
+      "uhid": "APX-2026-FB97184",
+      "age": "42Y 4M 12D",
+      "gender": "Male",
+      "tubeCode": "BLUE",
+      "tubeColor": "LIGHT BLUE",
+      "sampleType": "CITRATED PLASMA",
+      "testCodes": [
+        "SGPT"
+      ],
+      "testNames": [
+        "SGPT / ALT (Alanine Aminotransferase)"
+      ],
+      "printedAt": "2026-10-12T13:53:17.681Z"
+    }
+  ],
+  "reportSnapshot": {
+    "schemaVersion": 2,
+    "reportId": "ORD-FB97184",
+    "barcode": "APX-LAB-FB97184",
+    "accessionNumber": "ACC-2026-971841",
+    "invoiceNumber": "INV-2026-971841",
+    "reportVersion": 1,
+    "patient": {
+      "uhid": "APX-2026-FB97184",
+      "title": "Mr.",
+      "name": "Rahul Sharma",
+      "phone": "9718401811",
+      "age": 42,
+      "ageExact": {
+        "years": 42,
+        "months": 4,
+        "days": 12,
+        "display": "42Y 4M 12D"
+      },
+      "gender": "Male",
+      "referredBy": "Dr. A. K. Verma, MD (Consultant Physician)"
+    },
+    "tests": [
+      {
+        "code": "CBC",
+        "name": "Complete Blood Count (CBC)",
+        "value": "14.6 g/dL (Hb)",
+        "unit": "g/dL",
+        "reference": "13.0 - 17.0",
+        "status": "Normal",
+        "method": "Sysmex XN-550 Automated"
+      },
+      {
+        "code": "FBS",
+        "name": "Fasting Blood Glucose",
+        "value": "94",
+        "unit": "mg/dL",
+        "reference": "70 - 99",
+        "status": "Normal",
+        "method": "Hexokinase"
+      },
+      {
+        "code": "HBA1C",
+        "name": "Glycated Hemoglobin (HbA1c - HPLC)",
+        "value": "5.4",
+        "unit": "%",
+        "reference": "< 5.7",
+        "status": "Normal",
+        "method": "Bio-Rad D-10 HPLC"
+      },
+      {
+        "code": "CHOL",
+        "name": "Total Cholesterol",
+        "value": "182",
+        "unit": "mg/dL",
+        "reference": "< 200",
+        "status": "Normal",
+        "method": "Cholesterol Oxidase"
+      },
+      {
+        "code": "TRIG",
+        "name": "Serum Triglycerides",
+        "value": "138",
+        "unit": "mg/dL",
+        "reference": "< 150",
+        "status": "Normal",
+        "method": "GPO-PAP"
+      },
+      {
+        "code": "HDL",
+        "name": "HDL Cholesterol (Direct)",
+        "value": "52",
+        "unit": "mg/dL",
+        "reference": "> 40",
+        "status": "Normal",
+        "method": "Direct Accelerator Detergent"
+      },
+      {
+        "code": "VLDL",
+        "name": "VLDL Cholesterol (Auto-Derived)",
+        "value": "27.6",
+        "unit": "mg/dL",
+        "reference": "< 30.0",
+        "status": "Normal",
+        "method": "Friedewald Formula (TG / 5)"
+      },
+      {
+        "code": "LDL",
+        "name": "LDL Cholesterol (Auto-Derived)",
+        "value": "102.4",
+        "unit": "mg/dL",
+        "reference": "< 100.0",
+        "status": "Normal",
+        "method": "Friedewald Formula"
+      },
+      {
+        "code": "CREAT",
+        "name": "Serum Creatinine",
+        "value": "0.92",
+        "unit": "mg/dL",
+        "reference": "0.70 - 1.30",
+        "status": "Normal",
+        "method": "Jaffe Alkaline Picrate"
+      },
+      {
+        "code": "EGFR",
+        "name": "eGFR (Estimated GFR - Auto-Derived)",
+        "value": "98.4",
+        "unit": "mL/min/1.73m²",
+        "reference": "≥ 90.0",
+        "status": "Normal",
+        "method": "CKD-EPI 2021 Equation"
+      },
+      {
+        "code": "UREA",
+        "name": "Blood Urea Nitrogen / Urea",
+        "value": "26.4",
+        "unit": "mg/dL",
+        "reference": "15.0 - 45.0",
+        "status": "Normal",
+        "method": "GLDH Kinetic"
+      },
+      {
+        "code": "URIC_ACID",
+        "name": "Serum Uric Acid",
+        "value": "5.1",
+        "unit": "mg/dL",
+        "reference": "3.5 - 7.2",
+        "status": "Normal",
+        "method": "Uricase PAP"
+      },
+      {
+        "code": "BILI_TOTAL",
+        "name": "Total Bilirubin",
+        "value": "0.74",
+        "unit": "mg/dL",
+        "reference": "0.2 - 1.2",
+        "status": "Normal",
+        "method": "Diazo Method"
+      },
+      {
+        "code": "SGOT",
+        "name": "SGOT / AST",
+        "value": "24",
+        "unit": "U/L",
+        "reference": "< 40",
+        "status": "Normal",
+        "method": "IFCC UV without P5P"
+      },
+      {
+        "code": "SGPT",
+        "name": "SGPT / ALT",
+        "value": "28",
+        "unit": "U/L",
+        "reference": "< 41",
+        "status": "Normal",
+        "method": "IFCC UV without P5P"
+      },
+      {
+        "code": "FIB-4",
+        "name": "FIB-4 Liver Fibrosis Index (Auto-Derived)",
+        "value": "1.02",
+        "unit": "Score",
+        "reference": "< 1.45 (Low Risk)",
+        "status": "Normal",
+        "method": "Sterling Formula"
+      },
+      {
+        "code": "ALP",
+        "name": "Alkaline Phosphatase (ALP)",
+        "value": "78",
+        "unit": "U/L",
+        "reference": "40 - 129",
+        "status": "Normal",
+        "method": "p-NPP Kinetic"
+      },
+      {
+        "code": "TSH",
+        "name": "TSH (Thyroid Stimulating Hormone)",
+        "value": "2.18",
+        "unit": "uIU/mL",
+        "reference": "0.35 - 4.94",
+        "status": "Normal",
+        "method": "CLIA Chemiluminescence"
+      },
+      {
+        "code": "VIT-D",
+        "name": "Vitamin D 25-Hydroxy Total",
+        "value": "38.6",
+        "unit": "ng/mL",
+        "reference": "30.0 - 100.0 (Sufficient)",
+        "status": "Normal",
+        "method": "CLIA Chemiluminescence"
+      },
+      {
+        "code": "VIT-B12",
+        "name": "Vitamin B12 (Cyanocobalamin)",
+        "value": "465",
+        "unit": "pg/mL",
+        "reference": "211 - 911",
+        "status": "Normal",
+        "method": "ECLIA Electro-Chemiluminescence"
+      }
+    ],
+    "qc": {
+      "westgardStatus": "PASS",
+      "controlLot": "BIO-RAD-LIQ-L1",
+      "instrumentId": "BENCH-MULTI-ANALYZER",
+      "calibrationId": "CAL-2026-PASS",
+      "reviewedBy": "Authorized Pathologist"
+    },
+    "validation": {
+      "validatedBy": "pathologist",
+      "validatedAt": "2026-10-12T13:53:17.667Z",
+      "ruleset": "CLINICAL_AUTO_DERIVED_WESTGARD_v1"
+    },
+    "signoff": {
+      "pathologist": "Dr. Sameer Saxena",
+      "pathologistQualification": "MD (Pathology), DNB",
+      "pathologistMci": "DMC/R/18492",
+      "signatureMethod": "REAUTHENTICATED_SERVER_CREDENTIAL",
+      "signatureId": "SIG-84BCCE659C87"
+    },
+    "releasedAt": "2026-10-12T13:53:17.667Z",
+    "lab": {
+      "name": "HRGen Apex Diagnostic Center & Reference Laboratory",
+      "address": "Plot 42, Health City, Sector 18, Gurugram, NCR - 122001",
+      "phone": "+91-124-4982100 / +91-9718401811",
+      "email": "reports@apexdiagnostic.in",
+      "nablReg": "NABL MC-2984 / ISO 15189:2022"
+    }
+  },
+  "reportHash": "674ef8690d6028fc01b417445233b2465debd3a293ee04380e41d80822c41602",
+  "verificationToken": "vtok_-_OpLX5b7-yYl-l6bVHwTn8i",
+  "verifyUrl": "https://lims.hrgen.in/verify/vtok_-_OpLX5b7-yYl-l6bVHwTn8i",
+  "waMessage": "*HRGEN APEX DIAGNOSTIC CENTER*\n----------------------------------------\n*Patient Name:* Mr. Rahul Sharma (42Y / M)\n*Contact:* +91-9718401811\n*Accession No:* ACC-2026-971841\n*Invoice No:* INV-2026-971841\n*Package:* Comprehensive Full Body Checkup (20 Parameters)\n*Status:* ✅ Digitally Signed & Released\n\n*Test Summary Highlights:*\n• Complete Blood Count (CBC): Normal (Hb: 14.6 g/dL)\n• Fasting Blood Sugar: 94 mg/dL (Normal)\n• HbA1c Glycated Hemoglobin: 5.4 % (Normal Glycemic Control)\n• Lipid Profile: Chol 182, TG 138, HDL 52, LDL 102.4\n• Kidney Function (KFT): Creatinine 0.92 mg/dL | eGFR 98.4 (Normal)\n• Liver Function (LFT): Normal Enzymes | FIB-4 1.02 (Low Risk)\n• Thyroid (TSH): 2.18 uIU/mL (Euthyroid)\n• Vitamin D (25-OH): 38.6 ng/mL (Sufficient)\n• Vitamin B12: 465 pg/mL (Normal)\n\n*Billing Summary:*\n• Gross Amount: ₹5450.00\n• Discount (15%): ₹817.50\n• Net Payable: ₹4632.50\n• Paid Amount: ₹4000.00 (Via UPI)\n• Balance Due: ₹632.50\n----------------------------------------\n📄 *DOWNLOAD AUTHENTICATED PDF REPORT:*\nhttps://lims.hrgen.in/verify/vtok_-_OpLX5b7-yYl-l6bVHwTn8i\n\n🔒 *21 CFR Part 11 Digital Fingerprint (HMAC-SHA256):*\n674ef8690d6028fc01b417445233b246..."
+}

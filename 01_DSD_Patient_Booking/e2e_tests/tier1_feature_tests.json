@@ -1,0 +1,848 @@
+[
+  {
+    "id": "T1.F1.1",
+    "feature": "F1: 3-Step Interactive Clinical Quiz",
+    "name": "Step 1 demographics and lifestyle field validation",
+    "description": "Verifies step 1 accepts valid demographic fields (ageGroup, gender, activityLevel, sleepStress) and validates enum constraints.",
+    "input": {
+      "ageGroup": "18-29",
+      "gender": "male",
+      "activityLevel": "active",
+      "sleepStress": "restful",
+      "symptoms": ["general_checkup"],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "valid": true,
+      "ageGroup": "18-29",
+      "gender": "male",
+      "activityLevel": "active",
+      "sleepStress": "restful"
+    }
+  },
+  {
+    "id": "T1.F1.2",
+    "feature": "F1: 3-Step Interactive Clinical Quiz",
+    "name": "Step 2 symptom multi-select chip selection",
+    "description": "Verifies step 2 handles multi-select symptom array including fatigue, thirst_urination, and joint_pain.",
+    "input": {
+      "ageGroup": "30-45",
+      "gender": "female",
+      "activityLevel": "moderate",
+      "sleepStress": "moderate_stress",
+      "symptoms": ["fatigue", "thirst_urination", "joint_pain"],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "valid": true,
+      "symptomCount": 3,
+      "symptomsIncluded": ["fatigue", "thirst_urination", "joint_pain"]
+    }
+  },
+  {
+    "id": "T1.F1.3",
+    "feature": "F1: 3-Step Interactive Clinical Quiz",
+    "name": "Step 3 family history multi-select capture",
+    "description": "Verifies step 3 accurately records family history tags (diabetes, hypertension, kidney).",
+    "input": {
+      "ageGroup": "46-60",
+      "gender": "male",
+      "activityLevel": "moderate",
+      "sleepStress": "restful",
+      "symptoms": ["bp_concerns"],
+      "familyHistory": ["diabetes", "hypertension"]
+    },
+    "expected": {
+      "valid": true,
+      "familyHistoryCount": 2,
+      "familyHistoryIncluded": ["diabetes", "hypertension"]
+    }
+  },
+  {
+    "id": "T1.F1.4",
+    "feature": "F1: 3-Step Interactive Clinical Quiz",
+    "name": "Quiz step navigation forward and backward state persistence",
+    "description": "Verifies state persists across step transitions (Step 1 -> Step 2 -> Step 3) without data loss.",
+    "input": {
+      "ageGroup": "30-45",
+      "gender": "other",
+      "activityLevel": "sedentary",
+      "sleepStress": "poor_sleep_high_stress",
+      "symptoms": ["fatigue"],
+      "familyHistory": ["thyroid"]
+    },
+    "expected": {
+      "step1Recorded": true,
+      "step2Recorded": true,
+      "step3Recorded": true,
+      "finalSummaryComplete": true
+    }
+  },
+  {
+    "id": "T1.F1.5",
+    "feature": "F1: 3-Step Interactive Clinical Quiz",
+    "name": "Single symptom general_checkup selection behavior",
+    "description": "Verifies selecting 'general_checkup' represents routine wellness without penalizing baseline vitality.",
+    "input": {
+      "ageGroup": "18-29",
+      "gender": "female",
+      "activityLevel": "active",
+      "sleepStress": "restful",
+      "symptoms": ["general_checkup"],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "valid": true,
+      "symptoms": ["general_checkup"],
+      "vitalityScore": 98,
+      "vitalityBracket": "Optimal"
+    }
+  },
+  {
+    "id": "T1.F1.6",
+    "feature": "F1: 3-Step Interactive Clinical Quiz",
+    "name": "Invalid symptom rejection guard",
+    "description": "Verifies validation failure when non-contract symptom string is provided.",
+    "input": {
+      "ageGroup": "18-29",
+      "gender": "male",
+      "activityLevel": "active",
+      "sleepStress": "restful",
+      "symptoms": ["invalid_symptom_xyz"],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "valid": false,
+      "errorMatches": "Invalid symptom"
+    }
+  },
+  {
+    "id": "T1.F2.1",
+    "feature": "F2: Multi-Axial Clinical Calculation Engine",
+    "name": "Vitality score computation for pristine young adult",
+    "description": "Verifies maximum bounded Vitality Score (98) for optimal baseline demographics and zero symptoms.",
+    "input": {
+      "ageGroup": "18-29",
+      "gender": "male",
+      "activityLevel": "active",
+      "sleepStress": "restful",
+      "symptoms": ["general_checkup"],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "vitalityScore": 98,
+      "vitalityBracket": "Optimal",
+      "allRisksLow": true
+    }
+  },
+  {
+    "id": "T1.F2.2",
+    "feature": "F2: Multi-Axial Clinical Calculation Engine",
+    "name": "Metabolic risk axis elevation on thirst and diabetes history",
+    "description": "Verifies metabolic axis is flagged 'High' with >= 60% risk score when thirst_urination and diabetes history are present.",
+    "input": {
+      "ageGroup": "46-60",
+      "gender": "male",
+      "activityLevel": "sedentary",
+      "sleepStress": "moderate_stress",
+      "symptoms": ["thirst_urination"],
+      "familyHistory": ["diabetes"]
+    },
+    "expected": {
+      "metabolicLevel": "High",
+      "metabolicPercentageMin": 60,
+      "vitalityBracket": "Elevated Risk"
+    }
+  },
+  {
+    "id": "T1.F2.3",
+    "feature": "F2: Multi-Axial Clinical Calculation Engine",
+    "name": "Cardiovascular risk axis elevation on BP concerns and hypertension history",
+    "description": "Verifies cardiovascular axis reaches 'High' risk with arterial tension markers when BP concerns and family hypertension exist.",
+    "input": {
+      "ageGroup": "46-60",
+      "gender": "female",
+      "activityLevel": "sedentary",
+      "sleepStress": "poor_sleep_high_stress",
+      "symptoms": ["bp_concerns"],
+      "familyHistory": ["hypertension"]
+    },
+    "expected": {
+      "cardiovascularLevel": "High",
+      "cardiovascularPercentageMin": 60,
+      "vitalityBracket": "Elevated Risk"
+    }
+  },
+  {
+    "id": "T1.F2.4",
+    "feature": "F2: Multi-Axial Clinical Calculation Engine",
+    "name": "Renal risk axis elevation on kidney family history and comorbid symptoms",
+    "description": "Verifies renal risk evaluates to 'High' when family kidney history is coupled with systemic strain.",
+    "input": {
+      "ageGroup": "46-60",
+      "gender": "male",
+      "activityLevel": "moderate",
+      "sleepStress": "moderate_stress",
+      "symptoms": ["thirst_urination", "bp_concerns"],
+      "familyHistory": ["kidney"]
+    },
+    "expected": {
+      "renalLevel": "High",
+      "renalPercentageMin": 55
+    }
+  },
+  {
+    "id": "T1.F2.5",
+    "feature": "F2: Multi-Axial Clinical Calculation Engine",
+    "name": "Joint and inflammation axis elevation on stiffness and senior age",
+    "description": "Verifies joint/inflammation axis evaluates to 'High' when joint stiffness is accompanied by advanced age or sedentary strain.",
+    "input": {
+      "ageGroup": "60+",
+      "gender": "female",
+      "activityLevel": "sedentary",
+      "sleepStress": "moderate_stress",
+      "symptoms": ["joint_pain"],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "jointLevel": "High",
+      "jointPercentageMin": 55
+    }
+  },
+  {
+    "id": "T1.F2.6",
+    "feature": "F2: Multi-Axial Clinical Calculation Engine",
+    "name": "Vitality bracket classification transitions",
+    "description": "Verifies bracket thresholds: Optimal (>=80), Moderate (55-79), Elevated Risk (<55).",
+    "input": {
+      "ageGroup": "30-45",
+      "gender": "male",
+      "activityLevel": "moderate",
+      "sleepStress": "moderate_stress",
+      "symptoms": ["fatigue"],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "vitalityScore": 70,
+      "vitalityBracket": "Moderate"
+    }
+  },
+  {
+    "id": "T1.F3.1",
+    "feature": "F3: Hybrid Package Recommendation Engine",
+    "name": "Targeted diabetic package matched for metabolic risk",
+    "description": "Verifies primary package is 'diabetes' (Diabetic Package, ₹840) or 'thyrodiabetes' (₹960) paired with smartadvance (₹499).",
+    "input": {
+      "ageGroup": "30-45",
+      "gender": "male",
+      "activityLevel": "sedentary",
+      "sleepStress": "moderate_stress",
+      "symptoms": ["thirst_urination"],
+      "familyHistory": ["diabetes"]
+    },
+    "expected": {
+      "primaryPackageId": "thyrodiabetes",
+      "primaryPackagePrice": 960,
+      "campPackageId": "smartadvance",
+      "campPackagePrice": 499,
+      "savingsAmount": 461
+    }
+  },
+  {
+    "id": "T1.F3.2",
+    "feature": "F3: Hybrid Package Recommendation Engine",
+    "name": "Joint package matched for musculoskeletal symptoms",
+    "description": "Verifies primary package is 'joint' or 'specialjoint' paired with smartadvance.",
+    "input": {
+      "ageGroup": "30-45",
+      "gender": "female",
+      "activityLevel": "moderate",
+      "sleepStress": "restful",
+      "symptoms": ["joint_pain"],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "primaryPackageId": "joint",
+      "primaryPackagePrice": 875,
+      "campPackageId": "smartadvance",
+      "campPackagePrice": 499,
+      "savingsAmount": 376
+    }
+  },
+  {
+    "id": "T1.F3.3",
+    "feature": "F3: Hybrid Package Recommendation Engine",
+    "name": "Weakness package matched for chronic fatigue",
+    "description": "Verifies primary package is 'weakness' (Basic Weakness Package, ₹2,730) paired with smartadvance (₹499) saving ₹2,231.",
+    "input": {
+      "ageGroup": "30-45",
+      "gender": "male",
+      "activityLevel": "sedentary",
+      "sleepStress": "poor_sleep_high_stress",
+      "symptoms": ["fatigue"],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "primaryPackageId": "weakness",
+      "primaryPackagePrice": 2730,
+      "campPackageId": "smartadvance",
+      "campPackagePrice": 499,
+      "savingsAmount": 2231,
+      "savingsPercentage": 82
+    }
+  },
+  {
+    "id": "T1.F3.4",
+    "feature": "F3: Hybrid Package Recommendation Engine",
+    "name": "Hypertension package matched for cardiovascular concerns",
+    "description": "Verifies primary package is 'hypertension' (Hypertension Package, ₹4,710) paired with smartadvance (₹499) saving ₹4,211.",
+    "input": {
+      "ageGroup": "46-60",
+      "gender": "male",
+      "activityLevel": "sedentary",
+      "sleepStress": "poor_sleep_high_stress",
+      "symptoms": ["bp_concerns"],
+      "familyHistory": ["hypertension"]
+    },
+    "expected": {
+      "primaryPackageId": "hypertension",
+      "primaryPackagePrice": 4710,
+      "campPackageId": "smartadvance",
+      "campPackagePrice": 499,
+      "savingsAmount": 4211,
+      "savingsPercentage": 89
+    }
+  },
+  {
+    "id": "T1.F3.5",
+    "feature": "F3: Hybrid Package Recommendation Engine",
+    "name": "Renal screening matched with basiccamp entry alternative",
+    "description": "Verifies primary package is 'renal' (Renal Screening Package, ₹175) paired with basiccamp (₹299) offering free ECG.",
+    "input": {
+      "ageGroup": "46-60",
+      "gender": "female",
+      "activityLevel": "moderate",
+      "sleepStress": "restful",
+      "symptoms": [],
+      "familyHistory": ["kidney"]
+    },
+    "expected": {
+      "primaryPackageId": "renal",
+      "primaryPackagePrice": 175,
+      "campPackageId": "basiccamp",
+      "campPackagePrice": 299
+    }
+  },
+  {
+    "id": "T1.F3.6",
+    "feature": "F3: Hybrid Package Recommendation Engine",
+    "name": "General wellness matched with Executive Full Body Checkup",
+    "description": "Verifies primary package is 'executive' (Executive Full Body Checkup, ₹999) paired with smartadvance (₹499) saving ₹500.",
+    "input": {
+      "ageGroup": "18-29",
+      "gender": "male",
+      "activityLevel": "active",
+      "sleepStress": "restful",
+      "symptoms": ["general_checkup"],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "primaryPackageId": "executive",
+      "primaryPackagePrice": 999,
+      "campPackageId": "basiccamp",
+      "campPackagePrice": 299,
+      "savingsAmount": 700
+    }
+  },
+  {
+    "id": "T1.F4.1",
+    "feature": "F4: Dynamic Clinical Explanation Engine",
+    "name": "Clinical explanation includes HbA1c for metabolic indications",
+    "description": "Verifies HbA1c is highlighted with 90-120 day glucose rationale when metabolic risk is present.",
+    "input": {
+      "ageGroup": "30-45",
+      "gender": "male",
+      "activityLevel": "sedentary",
+      "sleepStress": "moderate_stress",
+      "symptoms": ["thirst_urination"],
+      "familyHistory": ["diabetes"]
+    },
+    "expected": {
+      "containsParameter": "HbA1c",
+      "roleKeyword": "Glucose",
+      "reasonKeyword": "erythrocyte"
+    }
+  },
+  {
+    "id": "T1.F4.2",
+    "feature": "F4: Dynamic Clinical Explanation Engine",
+    "name": "Clinical explanation includes CBC for fatigue symptoms",
+    "description": "Verifies CBC is highlighted with 24+ cellular hemogram and anemia rationale when fatigue is present.",
+    "input": {
+      "ageGroup": "30-45",
+      "gender": "female",
+      "activityLevel": "moderate",
+      "sleepStress": "poor_sleep_high_stress",
+      "symptoms": ["fatigue"],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "containsParameter": "CBC",
+      "roleKeyword": "Hemogram",
+      "reasonKeyword": "anemia"
+    }
+  },
+  {
+    "id": "T1.F4.3",
+    "feature": "F4: Dynamic Clinical Explanation Engine",
+    "name": "Clinical explanation includes KFT for renal and filtration indications",
+    "description": "Verifies KFT is highlighted with glomerular filtration and creatinine clearance rationale.",
+    "input": {
+      "ageGroup": "46-60",
+      "gender": "male",
+      "activityLevel": "moderate",
+      "sleepStress": "restful",
+      "symptoms": [],
+      "familyHistory": ["kidney"]
+    },
+    "expected": {
+      "containsParameter": "KFT",
+      "roleKeyword": "Kidney",
+      "reasonKeyword": "filtration"
+    }
+  },
+  {
+    "id": "T1.F4.4",
+    "feature": "F4: Dynamic Clinical Explanation Engine",
+    "name": "Clinical explanation includes LFT for hepatic and sedentary load",
+    "description": "Verifies LFT is highlighted with transaminases and fatty liver screening rationale.",
+    "input": {
+      "ageGroup": "30-45",
+      "gender": "male",
+      "activityLevel": "sedentary",
+      "sleepStress": "moderate_stress",
+      "symptoms": ["general_checkup"],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "containsParameter": "LFT",
+      "roleKeyword": "Hepatic",
+      "reasonKeyword": "fatty liver"
+    }
+  },
+  {
+    "id": "T1.F4.5",
+    "feature": "F4: Dynamic Clinical Explanation Engine",
+    "name": "Clinical explanation includes Lipid Profile for cardiovascular risk",
+    "description": "Verifies Lipid Profile is highlighted with atherogenic plaque and ASCVD risk rationale when BP concerns exist.",
+    "input": {
+      "ageGroup": "46-60",
+      "gender": "male",
+      "activityLevel": "sedentary",
+      "sleepStress": "poor_sleep_high_stress",
+      "symptoms": ["bp_concerns"],
+      "familyHistory": ["hypertension"]
+    },
+    "expected": {
+      "containsParameter": "Lipid Profile",
+      "roleKeyword": "Plaque",
+      "reasonKeyword": "cardiovascular"
+    }
+  },
+  {
+    "id": "T1.F4.6",
+    "feature": "F4: Dynamic Clinical Explanation Engine",
+    "name": "Clinical explanation includes Vitamin D3 for joint stiffness",
+    "description": "Verifies Vitamin D3 is highlighted with calcium absorption and bone mineral balance rationale.",
+    "input": {
+      "ageGroup": "46-60",
+      "gender": "female",
+      "activityLevel": "moderate",
+      "sleepStress": "restful",
+      "symptoms": ["joint_pain"],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "containsParameter": "Vitamin D3",
+      "roleKeyword": "Bone",
+      "reasonKeyword": "calcium"
+    }
+  },
+  {
+    "id": "T1.F5.1",
+    "feature": "F5: 1-Click Cart Addition & Booking Sync",
+    "name": "Cart addition updates item quantity by 1",
+    "description": "Verifies invoking qty(id, 1) updates cart dictionary record with package ID and count 1.",
+    "input": {
+      "cartBefore": {},
+      "packageId": "smartadvance",
+      "delta": 1
+    },
+    "expected": {
+      "cartAfter": { "smartadvance": 1 },
+      "count": 1,
+      "total": 499
+    }
+  },
+  {
+    "id": "T1.F5.2",
+    "feature": "F5: 1-Click Cart Addition & Booking Sync",
+    "name": "Multiple package cart aggregation and price summation",
+    "description": "Verifies adding both targeted package and camp package sums totals correctly.",
+    "input": {
+      "cartBefore": { "diabetes": 1 },
+      "packageId": "smartadvance",
+      "delta": 1
+    },
+    "expected": {
+      "cartAfter": { "diabetes": 1, "smartadvance": 1 },
+      "count": 2,
+      "total": 1339
+    }
+  },
+  {
+    "id": "T1.F5.3",
+    "feature": "F5: 1-Click Cart Addition & Booking Sync",
+    "name": "Cart removal removes key when quantity reaches zero",
+    "description": "Verifies invoking qty(id, -1) removes package key completely from cart state.",
+    "input": {
+      "cartBefore": { "smartadvance": 1 },
+      "packageId": "smartadvance",
+      "delta": -1
+    },
+    "expected": {
+      "cartAfter": {},
+      "count": 0,
+      "total": 0
+    }
+  },
+  {
+    "id": "T1.F5.4",
+    "feature": "F5: 1-Click Cart Addition & Booking Sync",
+    "name": "WhatsApp booking string serialization includes recommended package",
+    "description": "Verifies recommended package name, quantity, and price appear accurately in WhatsApp booking URL payload.",
+    "input": {
+      "cart": { "smartadvance": 1 },
+      "patientName": "Aarav Sharma",
+      "patientPhone": "9876543210"
+    },
+    "expected": {
+      "urlContainsName": "Aarav%20Sharma",
+      "urlContainsPhone": "9876543210",
+      "urlContainsPackage": "DSD%20Smart%20Health%20Advance",
+      "urlContainsTotal": "499"
+    }
+  },
+  {
+    "id": "T1.F5.5",
+    "feature": "F5: 1-Click Cart Addition & Booking Sync",
+    "name": "Repeated clicks on Add to Cart increments count smoothly",
+    "description": "Verifies consecutive clicks increment quantity without corrupting state.",
+    "input": {
+      "cartBefore": { "smartadvance": 2 },
+      "packageId": "smartadvance",
+      "delta": 1
+    },
+    "expected": {
+      "cartAfter": { "smartadvance": 3 },
+      "count": 3,
+      "total": 1497
+    }
+  },
+  {
+    "id": "T1.F6.1",
+    "feature": "F6: Awwwards-Grade Spring Physics",
+    "name": "Harmonic oscillator stiffness damping and mass configuration",
+    "description": "Verifies spring model adheres to k=300, c=30, m=1 resulting in underdamped settling.",
+    "input": {
+      "stiffness": 300,
+      "damping": 30,
+      "mass": 1,
+      "target": 100
+    },
+    "expected": {
+      "omega0": 17.3205,
+      "zeta": 0.866,
+      "isUnderdamped": true
+    }
+  },
+  {
+    "id": "T1.F6.2",
+    "feature": "F6: Awwwards-Grade Spring Physics",
+    "name": "Spring overshoot verification matches 1.05x subtle ratio",
+    "description": "Verifies trajectory exhibits ~1.05x subtle overshoot before settling at target.",
+    "input": {
+      "target": 80,
+      "initial": 0,
+      "steps": 60,
+      "dt": 0.016
+    },
+    "expected": {
+      "overshootRatioMin": 1.03,
+      "overshootRatioMax": 1.08,
+      "settlesNearTarget": true
+    }
+  },
+  {
+    "id": "T1.F6.3",
+    "feature": "F6: Awwwards-Grade Spring Physics",
+    "name": "Spring settle duration within 600ms tolerance band",
+    "description": "Verifies oscillator settles within 2% band inside 600ms simulation window.",
+    "input": {
+      "target": 65,
+      "initial": 0,
+      "steps": 40,
+      "dt": 0.016
+    },
+    "expected": {
+      "finalDisplacementMax": 1.0,
+      "isSettled": true
+    }
+  },
+  {
+    "id": "T1.F6.4",
+    "feature": "F6: Awwwards-Grade Spring Physics",
+    "name": "Reduced motion bypass disables animated spring delay",
+    "description": "Verifies prefers-reduced-motion returns instant target value with zero animation delay.",
+    "input": {
+      "target": 75,
+      "prefersReducedMotion": true
+    },
+    "expected": {
+      "immediateValue": 75,
+      "animationSkipped": true
+    }
+  },
+  {
+    "id": "T1.F6.5",
+    "feature": "F6: Awwwards-Grade Spring Physics",
+    "name": "Spring velocity decay monotonicity after peak",
+    "description": "Verifies velocity decays towards zero after initial peak without persistent oscillations.",
+    "input": {
+      "target": 90,
+      "initial": 0,
+      "steps": 60,
+      "dt": 0.016
+    },
+    "expected": {
+      "finalVelocityNearZero": true
+    }
+  },
+  {
+    "id": "T1.F7.1",
+    "feature": "F7: Multi-Layered Dark Glassmorphism",
+    "name": "Glassmorphism blur token enforcement",
+    "description": "Verifies backdrop-filter blur is set to 28px on assessment card containers.",
+    "input": {
+      "cssClass": "glass-assessment-card"
+    },
+    "expected": {
+      "backdropFilterBlur": "28px",
+      "supportsWebkit": true
+    }
+  },
+  {
+    "id": "T1.F7.2",
+    "feature": "F7: Multi-Layered Dark Glassmorphism",
+    "name": "Specular top edge gradient highlight presence",
+    "description": "Verifies pseudo-element ::before has top-lit specular edge gradient.",
+    "input": {
+      "cssClass": "glass-assessment-card::before"
+    },
+    "expected": {
+      "height": "1px",
+      "gradientColor": "rgba(72, 237, 134, 0.6)"
+    }
+  },
+  {
+    "id": "T1.F7.3",
+    "feature": "F7: Multi-Layered Dark Glassmorphism",
+    "name": "Ambient occlusion shadow and border tokens",
+    "description": "Verifies deep ambient shadow (0 24px 80px rgba(0,0,0,0.55)) and subtle border.",
+    "input": {
+      "cssClass": "glass-assessment-card"
+    },
+    "expected": {
+      "boxShadowMinSpread": "80px",
+      "borderColor": "rgba(255, 255, 255, 0.08)"
+    }
+  },
+  {
+    "id": "T1.F7.4",
+    "feature": "F7: Multi-Layered Dark Glassmorphism",
+    "name": "Typography weight constraint on glass surfaces",
+    "description": "Verifies descriptive text and labels on glass surfaces adhere to font-weight <= 500 for optical legibility.",
+    "input": {
+      "elementSelector": ".glass-assessment-card p, .glass-assessment-card span"
+    },
+    "expected": {
+      "fontWeightMax": 500
+    }
+  },
+  {
+    "id": "T1.F7.5",
+    "feature": "F7: Multi-Layered Dark Glassmorphism",
+    "name": "Interactive glass card hover state elevation",
+    "description": "Verifies hover state elevates emerald glow and subtle spring scale.",
+    "input": {
+      "cssClass": "glass-assessment-card:hover"
+    },
+    "expected": {
+      "glowBorder": "rgba(72, 237, 134, 0.28)",
+      "glowShadowIncluded": true
+    }
+  },
+  {
+    "id": "T1.F8.1",
+    "feature": "F8: Animated SVG Radial Score Gauge",
+    "name": "Radial gauge radius and circumference calculation",
+    "description": "Verifies gauge radius r=92px generates circumference 2*pi*92 ~= 578.053px.",
+    "input": {
+      "radius": 92
+    },
+    "expected": {
+      "radius": 92,
+      "circumference": 578.053
+    }
+  },
+  {
+    "id": "T1.F8.2",
+    "feature": "F8: Animated SVG Radial Score Gauge",
+    "name": "Stroke dashoffset calculation for optimal score 85",
+    "description": "Verifies dashoffset = 578.053 - (85 / 100) * 578.053 = 86.708px.",
+    "input": {
+      "score": 85
+    },
+    "expected": {
+      "score": 85,
+      "strokeDashoffset": 86.708,
+      "gradientId": "grad-optimal",
+      "color": "#48ed86"
+    }
+  },
+  {
+    "id": "T1.F8.3",
+    "feature": "F8: Animated SVG Radial Score Gauge",
+    "name": "Stroke dashoffset calculation for moderate score 65",
+    "description": "Verifies dashoffset for score 65 activates amber gradient 'grad-moderate'.",
+    "input": {
+      "score": 65
+    },
+    "expected": {
+      "score": 65,
+      "strokeDashoffset": 202.319,
+      "gradientId": "grad-moderate",
+      "color": "#f59e0b"
+    }
+  },
+  {
+    "id": "T1.F8.4",
+    "feature": "F8: Animated SVG Radial Score Gauge",
+    "name": "Stroke dashoffset calculation for elevated risk score 40",
+    "description": "Verifies dashoffset for score 40 activates coral gradient 'grad-risk'.",
+    "input": {
+      "score": 40
+    },
+    "expected": {
+      "score": 40,
+      "strokeDashoffset": 346.832,
+      "gradientId": "grad-risk",
+      "color": "#f43f5e"
+    }
+  },
+  {
+    "id": "T1.F8.5",
+    "feature": "F8: Animated SVG Radial Score Gauge",
+    "name": "Glowing head particle coordinates along the circular arc",
+    "description": "Verifies head particle coordinates match trigonometric projection (120 + 92*cos(theta), 120 + 92*sin(theta)).",
+    "input": {
+      "score": 25
+    },
+    "expected": {
+      "gradientId": "grad-risk",
+      "headParticleX": 120.0,
+      "headParticleY": 212.0
+    }
+  },
+  {
+    "id": "T1.F8.6",
+    "feature": "F8: Animated SVG Radial Score Gauge",
+    "name": "Numeric counter synchronization with spring animated value",
+    "description": "Verifies the central number counter is rounded to nearest integer without scientific notation.",
+    "input": {
+      "animatedValue": 72.8
+    },
+    "expected": {
+      "displayValue": 73
+    }
+  },
+  {
+    "id": "T1.F9.1",
+    "feature": "F9: Mobile Responsiveness & Accessibility",
+    "name": "Touch target minimum 44px on interactive chips and buttons",
+    "description": "Verifies all option chips and buttons satisfy WCAG AA minimum 44px tap target height.",
+    "input": {
+      "elementSelectors": [".option-chip", ".step-btn", ".cart-add-btn"]
+    },
+    "expected": {
+      "minHeightPx": 44,
+      "minWidthPx": 44
+    }
+  },
+  {
+    "id": "T1.F9.2",
+    "feature": "F9: Mobile Responsiveness & Accessibility",
+    "name": "Mobile dock clearance padding pb-24 enforcement",
+    "description": "Verifies container includes padding-bottom: 96px (pb-24) to clear fixed 56px mobileDock.",
+    "input": {
+      "containerClass": "vitality-container"
+    },
+    "expected": {
+      "paddingBottomPx": 96,
+      "dockClearanceSatisfied": true
+    }
+  },
+  {
+    "id": "T1.F9.3",
+    "feature": "F9: Mobile Responsiveness & Accessibility",
+    "name": "Single column stacking layout on narrow viewports",
+    "description": "Verifies grid collapses into single column on mobile viewports (< 650px).",
+    "input": {
+      "viewportWidth": 375
+    },
+    "expected": {
+      "gridColumns": 1,
+      "overflowX": "hidden"
+    }
+  },
+  {
+    "id": "T1.F9.4",
+    "feature": "F9: Mobile Responsiveness & Accessibility",
+    "name": "ARIA roles and live region screen reader support",
+    "description": "Verifies presence of role=region, role=radiogroup, and aria-live=polite on vitality score meter.",
+    "input": {
+      "ariaAttributes": ["role=region", "role=radiogroup", "aria-live=polite"]
+    },
+    "expected": {
+      "hasLiveRegion": true,
+      "hasRadiogroup": true,
+      "hasRegion": true
+    }
+  },
+  {
+    "id": "T1.F9.5",
+    "feature": "F9: Mobile Responsiveness & Accessibility",
+    "name": "Text color contrast ratio compliance with WCAG AA",
+    "description": "Verifies text color (#ffffff and #a7bbaa) on dark background (#050606) exceeds 4.5:1 ratio.",
+    "input": {
+      "textColorPrimary": "#ffffff",
+      "textColorSecondary": "#a7bbaa",
+      "bgColor": "#050606"
+    },
+    "expected": {
+      "primaryContrastRatio": 16.0,
+      "secondaryContrastRatio": 5.8,
+      "wcagAaPassed": true
+    }
+  }
+]

@@ -1,0 +1,51 @@
+{
+  "name": "hrgen-gia-lims",
+  "version": "6.0.0",
+  "description": "HRGen GIA LIMS — 77 capability build, server-authoritative PostgreSQL laboratory operating system",
+  "main": "server.js",
+  "scripts": {
+    "start": "node --env-file=.env server.js",
+    "start:local": "node run_local_server.js",
+    "dev": "node --env-file=.env --watch server.js",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "forensic": "node FORENSIC_VERIFY.js",
+    "build77": "node BUILD_77_VERIFY.js",
+    "verify:final": "node FINAL_BUILD_VERIFY.js",
+    "qa:break-it": "node QA_QC_BREAK_IT.js",
+    "qa:all": "node validation/FRONT_OFFICE_BEHAVIOR_TEST.js && node validation/FRONT_OFFICE_RESULT_REPORT_VERIFY.js && node FINAL_BUILD_VERIFY.js && node QA_QC_BREAK_IT.js && node validation/LEVEL4A_WESTGARD_VERIFY.js && node validation/LEVEL4A_WESTGARD_EDGE_CASES.js && node validation/LEVEL4A_QC_TENANT_VERIFY.js && node validation/CLINICAL_GATE_FIX_VERIFY.js && node validation/L99N100XN30_UI_ANALYZER_VERIFY.js && node validation/TENANT_RLS_STATIC_VERIFY.js && node validation/ENTERPRISE_AUDIT_VERIFY.js && node validation/ENTERPRISE_HARDENING_RUNTIME_VERIFY.js && node validation/SSO_PROVIDER_PROTOCOL_VERIFY.js",
+    "pretest": "node validation/FRONT_OFFICE_BEHAVIOR_TEST.js && node validation/FRONT_OFFICE_RESULT_REPORT_VERIFY.js && node validation/LEVEL4A_WESTGARD_VERIFY.js && node validation/LEVEL4A_WESTGARD_EDGE_CASES.js && node validation/LEVEL4A_QC_TENANT_VERIFY.js",
+    "verify:westgard": "node validation/LEVEL4A_WESTGARD_VERIFY.js && node validation/LEVEL4A_WESTGARD_EDGE_CASES.js && node validation/LEVEL4A_QC_TENANT_VERIFY.js",
+    "verify:clinical-gates": "node validation/CLINICAL_GATE_FIX_VERIFY.js",
+    "verify:enterprise-audit": "node validation/ENTERPRISE_AUDIT_VERIFY.js",
+    "verify:enterprise-hardening": "node validation/ENTERPRISE_HARDENING_RUNTIME_VERIFY.js && node validation/SSO_PROVIDER_PROTOCOL_VERIFY.js",
+    "test:rls": "node validation/POSTGRES_RLS_INTEGRATION_TEST.js"
+  },
+  "keywords": [
+    "pathology",
+    "laboratory-information-system",
+    "lis",
+    "nabl",
+    "iso15189",
+    "pwa",
+    "medical-lab"
+  ],
+  "author": "Hrgen Standalone Systems",
+  "license": "Commercial",
+  "dependencies": {
+    "@google/genai": "^2.30.0",
+    "@node-saml/node-saml": "^5.1.0",
+    "bcryptjs": "3.0.2",
+    "cors": "2.8.5",
+    "express": "4.21.2",
+    "openid-client": "^6.8.8",
+    "pg": "8.16.3",
+    "qrcode": "1.5.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.55.0",
+    "embedded-postgres": "^18.4.0-beta.17",
+    "nodemon": "3.1.9",
+    "vitest": "3.2.4"
+  }
+}

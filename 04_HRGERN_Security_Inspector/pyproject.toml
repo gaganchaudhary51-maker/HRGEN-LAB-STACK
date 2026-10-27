@@ -1,0 +1,14 @@
+[project]
+name = "security-audit-lab"
+version = "3.1.0"
+description = "Evidence-first security testing lab"
+requires-python = ">=3.10"
+
+[project.scripts]
+security-audit = "security_audit.cli:main"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+
+[project.optional-dependencies]
+test = ["pytest>=8", "jsonschema>=4"]

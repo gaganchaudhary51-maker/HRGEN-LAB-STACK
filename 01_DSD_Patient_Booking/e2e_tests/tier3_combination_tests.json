@@ -1,0 +1,237 @@
+[
+  {
+    "id": "T3.C.1",
+    "name": "Diabetes Symptoms + Joint Pain Co-Morbidity",
+    "description": "Verifies pairwise combination of thirst/urination and joint stiffness activates both Metabolic and Joint risk axes and recommends smartadvance as unifying camp alternative.",
+    "input": {
+      "ageGroup": "46-60",
+      "gender": "male",
+      "activityLevel": "sedentary",
+      "sleepStress": "moderate_stress",
+      "symptoms": ["thirst_urination", "joint_pain"],
+      "familyHistory": ["diabetes"]
+    },
+    "expected": {
+      "metabolicLevel": "High",
+      "jointLevel": "High",
+      "primaryPackageId": "thyrodiabetes",
+      "campPackageId": "smartadvance",
+      "vitalityScoreMax": 45,
+      "vitalityBracket": "Elevated Risk",
+      "explanationsContain": ["HbA1c", "Vitamin D3"]
+    }
+  },
+  {
+    "id": "T3.C.2",
+    "name": "Extreme Age (60+) + Hypertension Risk Pair",
+    "description": "Verifies pairwise combination of senior age (60+) and blood pressure concerns elevates Cardiovascular risk to High, recommends Hypertension Package, and provides free ECG camp alternative.",
+    "input": {
+      "ageGroup": "60+",
+      "gender": "female",
+      "activityLevel": "moderate",
+      "sleepStress": "poor_sleep_high_stress",
+      "symptoms": ["bp_concerns"],
+      "familyHistory": ["hypertension"]
+    },
+    "expected": {
+      "cardiovascularLevel": "High",
+      "primaryPackageId": "hypertension",
+      "primaryPrice": 4710,
+      "campPackageId": "smartadvance",
+      "campPrice": 499,
+      "savingsAmount": 4211,
+      "vitalityScoreMax": 40,
+      "explanationsContain": ["Lipid Profile"]
+    }
+  },
+  {
+    "id": "T3.C.3",
+    "name": "Chronic Fatigue + Sedentary Lifestyle Workload Pair",
+    "description": "Verifies fatigue combined with sedentary desk habits and poor sleep flags anemia/vitality deficit, recommending Basic Weakness Package alongside Smart Health Advance.",
+    "input": {
+      "ageGroup": "30-45",
+      "gender": "male",
+      "activityLevel": "sedentary",
+      "sleepStress": "poor_sleep_high_stress",
+      "symptoms": ["fatigue"],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "primaryPackageId": "weakness",
+      "primaryPrice": 2730,
+      "campPackageId": "smartadvance",
+      "campPrice": 499,
+      "savingsAmount": 2231,
+      "explanationsContain": ["CBC", "LFT"]
+    }
+  },
+  {
+    "id": "T3.C.4",
+    "name": "Thirst/Urination + Family Kidney Disease Pair",
+    "description": "Verifies combination of osmotic urinary symptoms with familial nephropathy elevates Renal risk to High and recommends Renal Screening Package.",
+    "input": {
+      "ageGroup": "46-60",
+      "gender": "male",
+      "activityLevel": "moderate",
+      "sleepStress": "moderate_stress",
+      "symptoms": ["thirst_urination"],
+      "familyHistory": ["kidney"]
+    },
+    "expected": {
+      "renalLevel": "High",
+      "explanationsContain": ["KFT", "HbA1c"]
+    }
+  },
+  {
+    "id": "T3.C.5",
+    "name": "Joint Stiffness + Severe Sleep Disturbance Pair",
+    "description": "Verifies musculoskeletal stiffness paired with high stress / unrefreshing sleep highlights Vitamin D3 deficiency and inflammatory strain.",
+    "input": {
+      "ageGroup": "46-60",
+      "gender": "female",
+      "activityLevel": "moderate",
+      "sleepStress": "poor_sleep_high_stress",
+      "symptoms": ["joint_pain"],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "jointLevel": "High",
+      "primaryPackageId": "joint",
+      "explanationsContain": ["Vitamin D3"]
+    }
+  },
+  {
+    "id": "T3.C.6",
+    "name": "Blood Pressure Concerns + Family Diabetes + Sedentary Triple",
+    "description": "Verifies combination of cardiovascular tension with metabolic hereditary risk triggers dual axis alert.",
+    "input": {
+      "ageGroup": "46-60",
+      "gender": "male",
+      "activityLevel": "sedentary",
+      "sleepStress": "moderate_stress",
+      "symptoms": ["bp_concerns"],
+      "familyHistory": ["diabetes"]
+    },
+    "expected": {
+      "cardiovascularLevel": "High",
+      "metabolicPercentageMin": 35,
+      "primaryPackageId": "hypertension",
+      "campPackageId": "smartadvance"
+    }
+  },
+  {
+    "id": "T3.C.7",
+    "name": "General Checkup + Maternal Diabetes History Pair",
+    "description": "Verifies proactive asymptomatic user with family diabetes history receives preventative recommendations including HbA1c explanation without severe penalty.",
+    "input": {
+      "ageGroup": "30-45",
+      "gender": "female",
+      "activityLevel": "moderate",
+      "sleepStress": "restful",
+      "symptoms": ["general_checkup"],
+      "familyHistory": ["diabetes"]
+    },
+    "expected": {
+      "vitalityScore": 79,
+      "vitalityBracket": "Moderate",
+      "explanationsContain": ["HbA1c"]
+    }
+  },
+  {
+    "id": "T3.C.8",
+    "name": "Fatigue + Blood Pressure Concerns Cross Pair",
+    "description": "Verifies concurrent complaints of low energy and vascular pressure triggers multi-organ investigation (CBC + Lipid Profile).",
+    "input": {
+      "ageGroup": "46-60",
+      "gender": "male",
+      "activityLevel": "moderate",
+      "sleepStress": "poor_sleep_high_stress",
+      "symptoms": ["fatigue", "bp_concerns"],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "cardiovascularLevel": "High",
+      "explanationsContain": ["CBC", "Lipid Profile"]
+    }
+  },
+  {
+    "id": "T3.C.9",
+    "name": "Senior Age (60+) + Joint Pain + BP Concerns Complex",
+    "description": "Verifies senior patient with joint stiffness and blood pressure concerns recommends Special Joint Package or Hypertension Package with comprehensive screening.",
+    "input": {
+      "ageGroup": "60+",
+      "gender": "female",
+      "activityLevel": "sedentary",
+      "sleepStress": "poor_sleep_high_stress",
+      "symptoms": ["joint_pain", "bp_concerns"],
+      "familyHistory": ["hypertension"]
+    },
+    "expected": {
+      "vitalityScoreMax": 30,
+      "vitalityBracket": "Elevated Risk",
+      "cardiovascularLevel": "High",
+      "jointLevel": "High",
+      "campPackageId": "smartadvance"
+    }
+  },
+  {
+    "id": "T3.C.10",
+    "name": "Thirst + Fatigue + Family Thyroid Metabolic Pair",
+    "description": "Verifies combination of osmotic thirst, lethargy, and endocrine family history targets Thyro-Diabetic Package.",
+    "input": {
+      "ageGroup": "30-45",
+      "gender": "female",
+      "activityLevel": "sedentary",
+      "sleepStress": "moderate_stress",
+      "symptoms": ["thirst_urination", "fatigue"],
+      "familyHistory": ["thyroid"]
+    },
+    "expected": {
+      "metabolicLevel": "High",
+      "primaryPackageId": "thyrodiabetes",
+      "explanationsContain": ["HbA1c", "CBC"]
+    }
+  },
+  {
+    "id": "T3.C.11",
+    "name": "Quad-Axis Multi-Morbidity Stress Test",
+    "description": "Verifies simultaneous presentation across all 4 clinical risk vectors clamps safely to 15 without throwing exceptions.",
+    "input": {
+      "ageGroup": "60+",
+      "gender": "male",
+      "activityLevel": "sedentary",
+      "sleepStress": "poor_sleep_high_stress",
+      "symptoms": ["fatigue", "thirst_urination", "joint_pain", "bp_concerns"],
+      "familyHistory": ["diabetes", "hypertension", "kidney", "thyroid"]
+    },
+    "expected": {
+      "vitalityScore": 15,
+      "vitalityBracket": "Elevated Risk",
+      "metabolicLevel": "High",
+      "cardiovascularLevel": "High",
+      "renalLevel": "High",
+      "jointLevel": "High"
+    }
+  },
+  {
+    "id": "T3.C.12",
+    "name": "Pristine Baseline Control Pair",
+    "description": "Verifies baseline optimal lifestyle with zero pathology symptoms and no family history cleanly achieves 98 points.",
+    "input": {
+      "ageGroup": "18-29",
+      "gender": "other",
+      "activityLevel": "active",
+      "sleepStress": "restful",
+      "symptoms": ["general_checkup"],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "vitalityScore": 98,
+      "vitalityBracket": "Optimal",
+      "metabolicLevel": "Low",
+      "cardiovascularLevel": "Low",
+      "renalLevel": "Low",
+      "jointLevel": "Low"
+    }
+  }
+]

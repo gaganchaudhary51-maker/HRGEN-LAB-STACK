@@ -1,0 +1,12 @@
+node_modules
+.env
+.env.*
+.git
+.gitignore
+npm-debug.log*
+coverage
+.vitest
+playwright-report
+test-results
+*.zip
+*.sha256

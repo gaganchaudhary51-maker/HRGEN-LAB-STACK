@@ -1,0 +1,66 @@
+{
+  "product": "HRGen GIA LIMS",
+  "release": "v6.0.0-PHASE-B-L100X-L99N30",
+  "generatedAt": "2026-10-06T20:06:42.038998+00:00",
+  "baselinePhaseAZipSha256": "9607c619c9eaf4a571b48df420c5c0365902aea5a20197c74ace6d35dc130488",
+  "verification": {
+    "phaseB": {
+      "status": "PASS",
+      "checks": 65
+    },
+    "fuzz": {
+      "status": "PASS",
+      "checks": 50000
+    },
+    "build77": {
+      "status": "PASS",
+      "checks": 77
+    },
+    "forensic": {
+      "status": "PASS",
+      "checks": 36
+    },
+    "cross": {
+      "status": "PASS",
+      "checks": 25
+    },
+    "qaQc": {
+      "status": "PASS",
+      "checks": 86
+    },
+    "phaseA": {
+      "status": "PASS",
+      "checks": 18
+    },
+    "jsSyntax": {
+      "status": "PASS",
+      "files": 24
+    },
+    "staticHttp": {
+      "status": "PASS",
+      "http": 200
+    },
+    "htmlParse": {
+      "status": "PASS",
+      "duplicateIds": 0
+    }
+  },
+  "runtimeBoundary": {
+    "npmInstall": "TIMED_OUT",
+    "vitest": "BLOCKED_NO_NODE_MODULES",
+    "postgresql": "NOT_AVAILABLE",
+    "liveOqPqUat": "NOT_EXECUTED"
+  },
+  "files": {
+    "server/services/opdService.js": "88f8d1bd410851477a14d7468febdddff69e2f0d9f5a4ea97bb1cefc4673ec4f",
+    "server/platformRoutes.js": "df0204fbe738bfd1eb1812a2b548322326629012b97935563c696d5ccd605a6b",
+    "public/index.html": "115d990559b2de38b30778a3341e870a46714375fc44e0814cdc0a8a6017d887",
+    "validation/PHASE_B_VERIFY.js": "e93f682d7dcf0537e6869f8e6bfa69a245638014c9c48da3c95d2bfe5a1ee15b",
+    "validation/PHASE_B_FUZZ.js": "974f52b64b09071a26ee9c94a3628fc24a9bb55b692baadc55f555ec4731dc4e",
+    "validation/PHASE_B_HANDOVER.md": "cb55977df690209d24d21e486bf7dfbe671e7624f4647b2f4b370eba983ccc3b",
+    "validation/GMP_BUILD_EVIDENCE.md": "a5d858cfd84a42c0fe72a6b261a34676d7dced0bec2451b34433731ba947e773",
+    "validation/PHASE_B_TEST_EVIDENCE.json": "f7b11faa3748aa70d64eaa0c0aae6bb5f7cf2c1b487a6688b8efe1443e311257",
+    "validation/PHASE_B_RELEASE_CHECKLIST.md": "53e47f2e14b0e942bde1979e25f2baa24ce6b2081fad3e4db5059a175cdd0c08",
+    ".env.example": "f788fdbc40dbc498ac1d2420f34fe551e575c51ba0af3e004ce7063d1c3a9d64"
+  }
+}

@@ -1,0 +1,6 @@
+Dependency/runtime boundary executed on 2026-10-07:
+- `npm install --no-audit --no-fund` was attempted and timed out after 120 seconds.
+- No node_modules directory was present after the attempt.
+- `npm test -- --runInBand` was attempted and failed with: `vitest: not found`.
+- PostgreSQL was not available in the execution environment (`pg_isready` unavailable).
+- Therefore live Express/PostgreSQL OQ/PQ/UAT was not executed.

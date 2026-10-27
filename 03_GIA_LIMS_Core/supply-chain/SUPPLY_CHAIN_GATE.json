@@ -1,0 +1,12 @@
+{
+  "sbom": "VERIFIED_DIRECT_DEPENDENCIES_ONLY",
+  "lockfile": "BLOCKED_REGISTRY_TIMEOUT",
+  "slsa_provenance": "BLOCKED_STALE_SUBJECT_DIGEST_REMOVED",
+  "in_toto": "BLOCKED_STALE_SUBJECT_DIGEST_REMOVED",
+  "cosign": "BLOCKED_TOOL_OR_KEY_UNAVAILABLE",
+  "reproducible_build": "BLOCKED_NO_LOCKFILE",
+  "timestamp": "2026-10-08T10:04:39.610832+00:00",
+  "artifact_digest_policy": "DETACHED_POST-PACKAGE SHA-256; never embed a self-referential ZIP digest",
+  "runtime_verification": "BLOCKED_DEPENDENCIES_NOT_INSTALLED",
+  "notes": "Previous embedded subject digest referred to a different ZIP and was not valid for this artifact. Detached checksum must be calculated from final ZIP bytes."
+}

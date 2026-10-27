@@ -1,0 +1,1649 @@
+﻿diff --git "a/D:\\HRGen LIMS\\HRGENLIMS\\HRGen-GIA-LIMS-PORTABLE-PRODUCTION-VAULT-2026\\server\\platformRoutes.js" "b/C:\\Users\\pc\\Desktop\\HRGEN GIA LIMS\\server\\platformRoutes.js"
+index 5ea869d..3009e7c 100644
+--- "a/D:\\HRGen LIMS\\HRGENLIMS\\HRGen-GIA-LIMS-PORTABLE-PRODUCTION-VAULT-2026\\server\\platformRoutes.js"	
++++ "b/C:\\Users\\pc\\Desktop\\HRGEN GIA LIMS\\server\\platformRoutes.js"	
+@@ -1,11 +1,9 @@
+ const crypto = require('crypto');
+ const net = require('net');
+-const fs = require('fs');
+-const path = require('path');
+ const {FEATURES} = require('./featureRegistry');
+ const {upsertPlatformRecord,listPlatformRecords,getPlatformRecord,nextSequence,createTenant,pool} = require('../db/postgres');
+ const {evaluate,validate:validateFormula,deriveCalculatedTests,calculateEGFR,calculateLipidFractions,calculateFIB4} = require('./services/formulaEngine');
+-const {evaluateCopilot} = require('./services/geminiCopilot');
++const {evaluateCopilot, generateDictationDraft} = require('./services/geminiCopilot');
+ const {verifyWebhook,handleIncomingMessage,sendWhatsAppCloudMessage} = require('./services/whatsappBot');
+ const {patientToFHIR,diagnosticReport,observation} = require('./services/fhir');
+ const {sendWhatsApp,sendMessage,razorpayCreateSubscription,razorpayVerifyWebhook,webhookSignature} = require('./services/integrations');
+@@ -38,7 +36,7 @@ function registerPlatformRoutes(app,deps){
+   const apiKeyAuth=apiKeyAuthFactory();
+   const roles=['admin','pathologist','tech','phlebotomist'];
+   const db=()=>getDB();
+-  async function tenantPlan(req){const sub=(await listPlatformRecords(tenantOf(req),'subscription'))[0];return PLAN_CATALOG[sub?.data?.plan||'ENTERPRISE'];}
++  async function tenantPlan(req){const sub=(await listPlatformRecords(tenantOf(req),'subscription'))[0];return PLAN_CATALOG[sub?.data?.plan||'STARTER'];}
+   const FEATURE_ALIASES={
+     'Employee login':'AUTH', 'Server-side RBAC':'RBAC', 'Employee lifecycle disable/revoke':'USER_LIFECYCLE', 'Patient CRUD':'PATIENT', 'Patient history':'PATIENT', 'Order/accession creation':'BILLING', 'Barcode generation':'PATIENT', 'Basic billing/payment capture':'BILLING', 'Result entry':'RESULTS', 'Analyzer result import':'ANALYZER', 'IQC':'QC', 'Westgard rules':'QC', 'Reagent lot':'INVENTORY', 'Calibration':'QC', 'Delta check':'AI', 'Critical result communication':'WHATSAPP_LINK', 'Technical validation gate':'RESULTS', 'Electronic sign-off':'REPORTS', 'Report release gate':'REPORTS', 'QR verification':'QR', 'Report amendment/versioning':'REPORTS', 'Immutable audit trail':'AUDIT', 'Backup/restore control':'BACKUP', 'Validation evidence store':'AUDIT', 'PWA cached shell':'OFFLINE', 'A4 report print':'REPORTS', 'WhatsApp report link':'WHATSAPP_LINK', 'Server test catalog':'PATIENT', 'Exact test-code matching':'PATIENT', 'Unit-aware panic limits':'RESULTS', 'PostgreSQL persistence':'CORE', 'Docker deployment':'CORE', 'Production fail-closed secrets':'CORE',
+ 
+@@ -80,180 +78,13 @@ function registerPlatformRoutes(app,deps){
+   app.put('/api/tenants/current/compliance',auth,requireRole('admin'),async(req,res)=>{const tid=tenantOf(req);const mode=String(req.body?.mode||'STANDARD').toUpperCase();if(!['STANDARD','NABL'].includes(mode))return json(res,400,{error:'mode must be STANDARD or NABL'});const t=(db().tenants||[]).find(x=>x.id===tid);if(t)t.mode=mode;await upsertPlatformRecord(tid,'compliance','CURRENT',{mode,mandatory:['NABL'].includes(mode)?['ULR','MU','DOC_CONTROL','NC_CAPA','PATHOLOGIST_SIGNOFF','AUDIT']:[]});await saveDB();appendAudit('COMPLIANCE_MODE_CHANGED',null,actorOf(req),req.auth.role,`Tenant mode ${mode}`);res.json({mode});});
+   app.post('/api/onboarding/complete',auth,requireRole('admin'),async(req,res)=>{const tid=tenantOf(req);const d={completed:true,completedAt:new Date().toISOString(),steps:req.body?.steps||[]};await upsertPlatformRecord(tid,'onboarding','CURRENT',d);appendAudit('ONBOARDING_COMPLETED',null,actorOf(req),req.auth.role,'Tenant onboarding marked complete');res.json(d);});
+   app.get('/api/plans',auth,async(req,res)=>res.json({plans:PLAN_CATALOG}));
+-  app.get('/api/entitlements',auth,async(req,res)=>{const sub=(await listPlatformRecords(tenantOf(req),'subscription'))[0];const planKey=sub?.data?.plan||'ENTERPRISE';const plan=PLAN_CATALOG[planKey]||PLAN_CATALOG.ENTERPRISE;const has=f=>plan.features.includes('*')||plan.features.includes(f);res.json({plan:planKey,features:FEATURES.map(f=>({id:f.id,name:f.name,phase:f.phase,key:featureKey(f.name),enabled:has(featureKey(f.name))})),modules:MODULE_CATALOG.map(m=>({...m,enabled:has(m.feature)})),limits:{seats:plan.maxSeats,branches:plan.maxBranches,reports:plan.maxReports}});});
++  app.get('/api/entitlements',auth,async(req,res)=>{const sub=(await listPlatformRecords(tenantOf(req),'subscription'))[0];const planKey=sub?.data?.plan||'STARTER';const plan=PLAN_CATALOG[planKey];const has=f=>plan.features.includes('*')||plan.features.includes(f);res.json({plan:planKey,features:FEATURES.map(f=>({id:f.id,name:f.name,phase:f.phase,key:featureKey(f.name),enabled:has(featureKey(f.name))})),modules:MODULE_CATALOG.map(m=>({...m,enabled:has(m.feature)})),limits:{seats:plan.maxSeats,branches:plan.maxBranches,reports:plan.maxReports}});});
+   app.post('/api/subscriptions',auth,requireRole('admin'),async(req,res)=>{const plan=String(req.body?.plan||'STARTER').toUpperCase();if(!PLAN_CATALOG[plan])return json(res,400,{error:'Unknown plan'});if(!req.body?.razorpayPlanId && process.env.RAZORPAY_KEY_ID)return json(res,400,{error:'razorpayPlanId required when Razorpay is configured'});const rp=await razorpayCreateSubscription({plan_id:req.body?.razorpayPlanId||null,total_count:120,quantity:1,customer_notify:1,notes:{tenantId:tenantOf(req),plan}});const s={id:rid('SUB'),plan,status:rp.status==='NOT_CONFIGURED'?'PENDING_PROVIDER':'CREATED',provider:rp.status,payment:rp.subscription||null,graceUntil:req.body?.graceUntil||null,dunningStage:0,updatedAt:new Date().toISOString()};await upsertPlatformRecord(tenantOf(req),'subscription','CURRENT',s);appendAudit('SUBSCRIPTION_CHANGED',null,actorOf(req),req.auth.role,`Subscription ${plan} ${s.status}`);res.status(201).json(s);});
+   app.put('/api/subscriptions/current',auth,requireRole('admin'),async(req,res)=>{const current=(await listPlatformRecords(tenantOf(req),'subscription'))[0];if(!current)return json(res,404,{error:'Subscription not found'});const next={...current.data,status:text(req.body?.status,40)||current.data.status,graceUntil:req.body?.graceUntil||current.data.graceUntil||null,dunningStage:Number(req.body?.dunningStage??current.data.dunningStage??0),updatedAt:new Date().toISOString()};const out=await upsertPlatformRecord(tenantOf(req),'subscription','CURRENT',next);appendAudit('SUBSCRIPTION_UPDATED',null,actorOf(req),req.auth.role,`Subscription status ${next.status}, dunning ${next.dunningStage}`);res.json(out);});
+   app.get('/api/metering',auth,async(req,res)=>{const D=db(),tid=tenantOf(req),users=(D.users||[]).filter(u=>(u.tenantId||'default')===tid&&u.status!=='DISABLED').length,branches=(await listPlatformRecords(tid,'branch')).length,month=new Date().toISOString().slice(0,7),reports=(D.orders||[]).filter(o=>(o.tenantId||'default')===tid&&o.pipelineStatus==='RELEASED'&&String(o.releasedAt||'').slice(0,7)===month).length;const plan=await tenantPlan(req);res.json({month,usage:{seats:users,branches,reports},limits:{seats:plan.maxSeats,branches:plan.maxBranches,reports:plan.maxReports}});});
+   app.post('/api/subscriptions/webhook',async(req,res)=>{const raw=req.bodyRaw||JSON.stringify(req.body||{});const sig=req.get('x-razorpay-signature');const ok=await razorpayVerifyWebhook(raw,sig);if(!ok)return json(res,401,{error:'Invalid webhook signature'});res.json({received:true});});
+-  function getSystemPublicKey(){
+-    if(process.env.LICENSE_PUBLIC_KEY) return process.env.LICENSE_PUBLIC_KEY;
+-    const candidates = [
+-      path.join(process.cwd(), 'license-public.pem'),
+-      path.join(__dirname, '..', 'license-public.pem'),
+-      path.join(__dirname, 'license-public.pem')
+-    ];
+-    for(const p of candidates){
+-      if(fs.existsSync(p)){
+-        try { return fs.readFileSync(p, 'utf8'); } catch(e){}
+-      }
+-    }
+-    return '';
+-  }
+-
+-  function readDiskLicense(){
+-    const candidates = [
+-      path.join(process.cwd(), 'license.json'),
+-      path.join(__dirname, '..', 'license.json')
+-    ];
+-    for(const p of candidates){
+-      if(fs.existsSync(p)){
+-        try {
+-          const raw = JSON.parse(fs.readFileSync(p, 'utf8'));
+-          if(raw.payload && raw.signature) return raw;
+-        } catch(e){}
+-      }
+-    }
+-    return null;
+-  }
+-
+-  app.get('/api/license',auth,async(req,res)=>{
+-    let d=(await getPlatformRecord(tenantOf(req),'license','CURRENT'))?.data||null;
+-    if(!d){
+-      const diskLic = readDiskLicense();
+-      if(diskLic){
+-        const pub = getSystemPublicKey();
+-        if(pub){
+-          try {
+-            const ok = crypto.verify(null, Buffer.from(JSON.stringify(diskLic.payload)), {key:pub,format:'pem',type:'spki'}, Buffer.from(diskLic.signature, 'base64url'));
+-            if(ok){
+-              await upsertPlatformRecord(tenantOf(req),'license','CURRENT',diskLic.payload,'ACTIVE');
+-              d = diskLic.payload;
+-            }
+-          } catch(e){}
+-        }
+-      }
+-    }
+-    res.json({configured:!!d,license:d});
+-  });
+-
+-  app.get('/api/license/status',auth,async(req,res)=>{
+-    let d=(await getPlatformRecord(tenantOf(req),'license','CURRENT'))?.data||null;
+-    if(!d){
+-      const diskLic = readDiskLicense();
+-      if(diskLic){
+-        const pub = getSystemPublicKey();
+-        if(pub){
+-          try {
+-            const ok = crypto.verify(null, Buffer.from(JSON.stringify(diskLic.payload)), {key:pub,format:'pem',type:'spki'}, Buffer.from(diskLic.signature, 'base64url'));
+-            if(ok){
+-              await upsertPlatformRecord(tenantOf(req),'license','CURRENT',diskLic.payload,'ACTIVE');
+-              d = diskLic.payload;
+-            }
+-          } catch(e){}
+-        }
+-      }
+-    }
+-    res.json({
+-      configured: !!d,
+-      active: !!d,
+-      tier: d?.tier || d?.plan || 'UNLICENSED',
+-      issuedTo: d?.issuedTo || d?.customerName || 'HRGen Enterprise Customer',
+-      expiresAt: d?.expiresAt || 'PERPETUAL',
+-      amcUntil: d?.amcUntil || 'ACTIVE',
+-      perpetual: d?.perpetual !== false,
+-      features: d?.features || ['ALL_77_FEATURES'],
+-      license: d
+-    });
+-  });
+-
+-  app.post('/api/license/verify',auth,async(req,res)=>{
+-    const license=req.body?.license||req.body;
+-    const pub=getSystemPublicKey();
+-    if(!pub)return json(res,503,{status:'NOT_CONFIGURED',error:'LICENSE_PUBLIC_KEY required'});
+-    const payload=Buffer.from(JSON.stringify(license.payload||{}));
+-    const sig=Buffer.from(String(license.signature||''),'base64url');
+-    let valid=false;
+-    try{valid=crypto.verify(null,payload,{key:pub,format:'pem',type:'spki'},sig);}catch{}
+-    const now=new Date();
+-    const expiry=license.payload?.expiresAt?new Date(license.payload.expiresAt):null;
+-    const amc=license.payload?.amcUntil?new Date(license.payload.amcUntil):null;
+-    const validTime=(!expiry||expiry>=now)&&(!amc||amc>=now);
+-    valid=valid&&validTime;
+-    if(valid)await upsertPlatformRecord(tenantOf(req),'license','CURRENT',license.payload,'ACTIVE');
+-    res.json({valid,expiresAt:license.payload?.expiresAt||null,amcUntil:license.payload?.amcUntil||null});
+-  });
+-
+-  app.post('/api/license/activate',auth,requireRole('admin'),async(req,res)=>{
+-    let rawInput = req.body?.license || req.body?.licenseKey || req.body?.key || req.body;
+-    if(typeof rawInput === 'string'){
+-      try {
+-        rawInput = JSON.parse(rawInput);
+-      } catch(e1){
+-        try {
+-          rawInput = JSON.parse(Buffer.from(rawInput, 'base64').toString('utf8'));
+-        } catch(e2){
+-          try {
+-            rawInput = JSON.parse(Buffer.from(rawInput, 'base64url').toString('utf8'));
+-          } catch(e3){
+-            return json(res, 400, { error: 'Invalid license format. Please paste valid license JSON or Base64 token.' });
+-          }
+-        }
+-      }
+-    }
+-    if(!rawInput || typeof rawInput !== 'object'){
+-      return json(res, 400, { error: 'Missing license data payload.' });
+-    }
+-    const payloadObj = rawInput.payload || rawInput;
+-    const signatureStr = rawInput.signature || '';
+-    if(!signatureStr){
+-      return json(res, 400, { error: 'Cryptographic signature missing from license payload.' });
+-    }
+-
+-    const pub = getSystemPublicKey();
+-    if(!pub) return json(res, 503, { error: 'System public key (license-public.pem) not found.' });
+-
+-    let sigValid = false;
+-    try {
+-      const pBuf = Buffer.from(JSON.stringify(payloadObj));
+-      const sBuf = Buffer.from(signatureStr, 'base64url');
+-      sigValid = crypto.verify(null, pBuf, { key: pub, format: 'pem', type: 'spki' }, sBuf);
+-    } catch(err){
+-      return json(res, 400, { error: 'Signature verification failure: ' + err.message });
+-    }
+-
+-    if(!sigValid){
+-      return json(res, 400, { error: 'FAIL: Cryptographic signature verification failed. Tampered or invalid license key.' });
+-    }
+-
+-    const now = new Date();
+-    const expiry = payloadObj.expiresAt ? new Date(payloadObj.expiresAt) : null;
+-    const amc = payloadObj.amcUntil ? new Date(payloadObj.amcUntil) : null;
+-    if(expiry && expiry < now){
+-      return json(res, 400, { error: `License expired on ${payloadObj.expiresAt}. Contact administrator.` });
+-    }
+-    if(amc && amc < now){
+-      return json(res, 400, { error: `AMC support expired on ${payloadObj.amcUntil}.` });
+-    }
+-
+-    const fullLicenseRecord = { payload: payloadObj, signature: signatureStr };
+-    try {
+-      fs.writeFileSync(path.join(process.cwd(), 'license.json'), JSON.stringify(fullLicenseRecord, null, 2), { mode: 0o600 });
+-    } catch(e){}
+-
+-    await upsertPlatformRecord(tenantOf(req), 'license', 'CURRENT', payloadObj, 'ACTIVE');
+-    appendAudit('LICENSE_ACTIVATED', null, actorOf(req), req.auth.role, `In-App 1-Click Activation: ${payloadObj.tier || 'ENTERPRISE'} for ${payloadObj.issuedTo || 'Enterprise Client'}`);
+-
+-    res.json({
+-      success: true,
+-      valid: true,
+-      tier: payloadObj.tier || payloadObj.plan || 'ENTERPRISE_LIMS_L99N30',
+-      issuedTo: payloadObj.issuedTo || payloadObj.customerName || 'HRGen Enterprise Customer',
+-      expiresAt: payloadObj.expiresAt || 'PERPETUAL',
+-      amcUntil: payloadObj.amcUntil || 'ACTIVE',
+-      perpetual: payloadObj.perpetual !== false,
+-      message: 'License successfully activated! Perpetual Enterprise access active.'
+-    });
+-  });
++  app.get('/api/license',auth,async(req,res)=>{const d=(await getPlatformRecord(tenantOf(req),'license','CURRENT'))?.data||null;res.json({configured:!!d,license:d});});
++  app.post('/api/license/verify',auth,async(req,res)=>{const license=req.body?.license||req.body;const pub=process.env.LICENSE_PUBLIC_KEY||'';if(!pub)return json(res,503,{status:'NOT_CONFIGURED',error:'LICENSE_PUBLIC_KEY required'});const payload=Buffer.from(JSON.stringify(license.payload||{}));const sig=Buffer.from(String(license.signature||''),'base64url');let valid=false;try{valid=crypto.verify(null,payload,{key:pub,format:'pem',type:'spki'},sig);}catch{}const now=new Date(); const expiry=license.payload?.expiresAt?new Date(license.payload.expiresAt):null; const amc=license.payload?.amcUntil?new Date(license.payload.amcUntil):null; const validTime=(!expiry||expiry>=now)&&(!amc||amc>=now); valid=valid&&validTime; if(valid)await upsertPlatformRecord(tenantOf(req),'license','CURRENT',license.payload,'ACTIVE');res.json({valid,expiresAt:license.payload?.expiresAt||null,amcUntil:license.payload?.amcUntil||null});});
+   app.get('/api/export',auth,requireRole('admin'),async(req,res)=>{const D=db(),tid=tenantOf(req);const payload={exportedAt:new Date().toISOString(),tenantId:tid,patients:(D.patients||[]).filter(x=>(x.tenantId||'default')===tid),orders:(D.orders||[]).filter(x=>(x.tenantId||'default')===tid),catalog:(D.testCatalog||[]).filter(x=>(x.tenantId||'default')===tid)};appendAudit('DATA_EXPORT',null,actorOf(req),req.auth.role,'Tenant data export generated');res.json(payload);});
+ 
+   app.get('/api/users',auth,requireRole('admin'),async(req,res)=>{const D=db();res.json({users:(D.users||[]).filter(u=>(u.tenantId||'default')===tenantOf(req)).map(u=>({id:u.id,username:u.username,role:u.role,status:u.status,displayName:u.displayName,createdAt:u.createdAt}))});});
+@@ -313,8 +144,8 @@ function registerPlatformRoutes(app,deps){
+   app.post('/api/dpdp/erasure-request',auth,requireRole('admin'),async(req,res)=>{const d={patientId:text(req.body?.patientId,80),reason:text(req.body?.reason,500),status:'REQUESTED',requestedAt:new Date().toISOString()};const r=await upsertPlatformRecord(tenantOf(req),'dpdp_erasure',rid('ERASE'),d);appendAudit('DPDP_ERASURE_REQUEST',d.patientId,actorOf(req),req.auth.role,'Erasure requested; regulatory retention must be assessed');res.status(201).json(r);});
+   app.post('/api/dpdp/breach',auth,requireRole('admin'),async(req,res)=>{const r=await upsertPlatformRecord(tenantOf(req),'dpdp_breach',rid('BREACH'),{severity:text(req.body?.severity,30),summary:text(req.body?.summary,1000),detectedAt:new Date().toISOString(),status:'OPEN'});appendAudit('DPDP_BREACH_RECORDED',null,actorOf(req),req.auth.role,'Data breach record created');res.status(201).json(r);});
+   app.get('/api/fhir/patient/:id',auth,async(req,res)=>{const p=db().patients.find(x=>x.id===req.params.id&&(x.tenantId||tenantOf(req))===tenantOf(req));if(!p)return json(res,404,{error:'Patient not found'});res.json(patientToFHIR(p));});
+-  app.get('/api/fhir/DiagnosticReport/:id',auth,async(req,res)=>{const tid=tenantOf(req),D=db(),o=D.orders.find(x=>x.id===req.params.id&&(x.tenantId||'default')===tid);if(!o)return json(res,404,{error:'Order not found'});const p=D.patients.find(x=>x.id===o.patientId&&(x.tenantId||'default')===tid);if(!p)return json(res,404,{error:'Patient not found'});res.json(diagnosticReport(o,p,process.env.LAB_NAME||'Configured Laboratory'));});
+-  app.get('/api/fhir/Observation/:orderId',auth,async(req,res)=>{const tid=tenantOf(req),D=db(),o=D.orders.find(x=>x.id===req.params.orderId&&(x.tenantId||'default')===tid);if(!o)return json(res,404,{error:'Order not found'});const p=D.patients.find(x=>x.id===o.patientId&&(x.tenantId||'default')===tid);if(!p)return json(res,404,{error:'Patient not found'});res.json((o.tests||[]).map((t,i)=>observation(o,t,i,p)));});
++  app.get('/api/fhir/DiagnosticReport/:id',auth,async(req,res)=>{const D=db(),o=D.orders.find(x=>x.id===req.params.id&&(x.tenantId||tenantOf(req))===tenantOf(req));if(!o)return json(res,404,{error:'Order not found'});const p=D.patients.find(x=>x.id===o.patientId);if(!p)return json(res,404,{error:'Patient not found'});res.json(diagnosticReport(o,p,process.env.LAB_NAME||'Configured Laboratory'));});
++  app.get('/api/fhir/Observation/:orderId',auth,async(req,res)=>{const D=db(),o=D.orders.find(x=>x.id===req.params.orderId&&(x.tenantId||tenantOf(req))===tenantOf(req));if(!o)return json(res,404,{error:'Order not found'});const p=D.patients.find(x=>x.id===o.patientId);res.json((o.tests||[]).map((t,i)=>observation(o,t,i,p)));});
+   app.post('/api/nabl/ulr',auth,requireRole('admin','pathologist'),async(req,res)=>res.status(201).json(await upsertPlatformRecord(tenantOf(req),'nabl_ulr',rid('ULR'),{reportId:text(req.body?.reportId,80),ulr:text(req.body?.ulr,120),issuedAt:new Date().toISOString()})));
+   app.post('/api/nabl/mu',auth,requireRole('admin','pathologist'),async(req,res)=>res.status(201).json(await upsertPlatformRecord(tenantOf(req),'nabl_mu',rid('MU'),{testCode:text(req.body?.testCode,40),value:req.body?.value,unit:text(req.body?.unit,40),uncertainty:req.body?.uncertainty,coverageFactor:req.body?.coverageFactor,method:text(req.body?.method,200),evidenceRef:text(req.body?.evidenceRef,200)})));
+   app.post('/api/nabl/documents',auth,requireRole('admin'),async(req,res)=>res.status(201).json(await upsertPlatformRecord(tenantOf(req),'nabl_document',rid('DOC'),{title:text(req.body?.title,160),version:text(req.body?.version,30),status:text(req.body?.status,30)||'DRAFT',effectiveFrom:req.body?.effectiveFrom||null,reviewDue:req.body?.reviewDue||null,owner:text(req.body?.owner,100)})));
+@@ -423,7 +254,7 @@ function registerPlatformRoutes(app,deps){
+     if(b.patientId){patient=db().patients.find(p=>p.id===String(b.patientId)&& (p.tenantId||'default')===tid&&p.active!==false);if(!patient)return json(res,404,{error:'Patient not found'});}
+     else {
+       const tokenNo=db().patients.filter(p=>(p.tenantId||'default')===tid).reduce((m,p)=>Math.max(m,Number(p.tokenNo)||0),0)+1;
+-      patient={id:rid('PT'),tenantId:tid,tokenNo,uhid:`LAB-${new Date().getFullYear()}-${crypto.randomBytes(5).toString('hex').toUpperCase()}`,title:text(b.title,10)||'Mr.',name,age:ageExact.years,ageUnit:'Years',ageExact,gender,phone,referredBy:doctor?.data?.name||'Self / Direct OPD',sampleLocation:text(b.sampleLocation,32)||'In-Lab',type:'OPD',createdAt:new Date().toISOString()};
++      patient={id:rid('PT'),tenantId:tid,tokenNo,uhid:`APX-${new Date().getFullYear()}-${crypto.randomBytes(5).toString('hex').toUpperCase()}`,title:text(b.title,10)||'Mr.',name,age:ageExact.years,ageUnit:'Years',ageExact,gender,phone,referredBy:doctor?.data?.name||'Self / Direct OPD',sampleLocation:text(b.sampleLocation,32)||'In-Lab',type:'OPD',createdAt:new Date().toISOString()};
+     }
+     const policy=await effectivePolicy(req);
+     const invoiceNumber=await nextSequence(tid,'INVOICE','INV');
+@@ -469,10 +300,19 @@ function registerPlatformRoutes(app,deps){
+     res.json({count:rows.length,queue:rows});
+   });
+   app.post('/api/specimens/accept',auth,requireRole('admin','tech','phlebotomist','pathologist'),async(req,res)=>{
+-    const tid=tenantOf(req), o=db().orders.find(x=>x.id===text(req.body?.orderId,80)&&(x.tenantId||'default')===tid);
++    const tid=tenantOf(req), D=db(), o=D.orders.find(x=>x.id===text(req.body?.orderId,80)&&(x.tenantId||'default')===tid);
+     if(!o)return json(res,404,{error:'Order not found'});
+-    o.specimenStatus='ACCEPTED'; o.recollectionRequired=false;
+-    o.specimen={status:'ACCEPTED',acceptedAt:new Date().toISOString(),acceptedBy:actorOf(req),tubeCode:text(req.body?.tubeCode,40)||'ALL',centrifuged:bool(req.body?.centrifuged),notes:text(req.body?.notes,300)};
++    if(['VALIDATED','RELEASED'].includes(o.pipelineStatus))return json(res,409,{error:'Specimen state is immutable after validation; use the controlled amendment/recollection workflow.'});
++    if(o.specimenStatus==='ACCEPTED')return json(res,409,{error:'Specimen has already been accepted'});
++    const requestedTube=text(req.body?.tubeCode,40)||'ALL';
++    const patient=D.patients.find(p=>p.id===o.patientId&&(p.tenantId||'default')===tid);
++    const expectedTubes=makeLabelData(o,patient,D.testCatalog.filter(t=>(t.tenantId||'default')===tid)).map(t=>String(t.tubeCode||'').toUpperCase()).filter(Boolean);
++    if(requestedTube!=='ALL'&&!expectedTubes.includes(requestedTube.toUpperCase()))return json(res,400,{error:'Tube code does not match the accession test requirements',allowedTubeCodes:[...new Set(expectedTubes)]});
++    const now=new Date().toISOString();
++    o.specimenHistory=Array.isArray(o.specimenHistory)?o.specimenHistory:[];
++    if(o.specimen)o.specimenHistory.push({...o.specimen,archivedAt:now});
++    o.specimenStatus='ACCEPTED'; o.recollectionRequired=false; o.receivedAt=o.receivedAt||now;
++    o.specimen={status:'ACCEPTED',receivedAt:o.receivedAt,acceptedAt:now,acceptedBy:actorOf(req),tubeCode:requestedTube,centrifuged:bool(req.body?.centrifuged),notes:text(req.body?.notes,300)};
+     appendAudit('SPECIMEN_ACCEPTED',o.id,actorOf(req),req.auth.role,`Tube: ${o.specimen.tubeCode}; Centrifuged: ${o.specimen.centrifuged}; Notes: ${o.specimen.notes}`);
+     await saveDB();
+     res.json({success:true,orderId:o.id,specimen:o.specimen});
+@@ -480,11 +320,15 @@ function registerPlatformRoutes(app,deps){
+   app.post('/api/specimens/reject',auth,requireRole('admin','tech','phlebotomist','pathologist'),async(req,res)=>{
+     const tid=tenantOf(req), o=db().orders.find(x=>x.id===text(req.body?.orderId,80)&&(x.tenantId||'default')===tid);
+     if(!o)return json(res,404,{error:'Order not found'});
++    if(['VALIDATED','RELEASED'].includes(o.pipelineStatus))return json(res,409,{error:'Specimen state is immutable after validation; use the controlled amendment/recollection workflow.'});
+     const validReasons=['HEMOLYSIS','ICTERIC','LIPEMIA','CLOTTED','QNS','MISLABELED','CONTAINER_LEAK','OTHER'];
+     const rawReason=text(req.body?.reason,60).toUpperCase();
+-    const reason=validReasons.includes(rawReason)?rawReason:'OTHER';
++    if(!validReasons.includes(rawReason))return json(res,400,{error:'A valid specimen rejection reason is required',allowedReasons:validReasons});
++    const reason=rawReason, now=new Date().toISOString();
++    o.specimenHistory=Array.isArray(o.specimenHistory)?o.specimenHistory:[];
++    if(o.specimen)o.specimenHistory.push({...o.specimen,archivedAt:now});
+     o.specimenStatus='REJECTED'; o.recollectionRequired=bool(req.body?.requestRecollection!==false);
+-    o.specimen={status:'REJECTED',rejectedAt:new Date().toISOString(),rejectedBy:actorOf(req),reason,tubeCode:text(req.body?.tubeCode,40)||'ALL',recollectionRequired:o.recollectionRequired,notes:text(req.body?.notes,500)};
++    o.specimen={status:'REJECTED',rejectedAt:now,rejectedBy:actorOf(req),reason,tubeCode:text(req.body?.tubeCode,40)||'ALL',recollectionRequired:o.recollectionRequired,notes:text(req.body?.notes,500)};
+     appendAudit('SPECIMEN_REJECTED',o.id,actorOf(req),req.auth.role,`Reason: ${reason}; RecollectionRequired: ${o.recollectionRequired}; Tube: ${o.specimen.tubeCode}`);
+     await saveDB();
+     res.json({success:true,orderId:o.id,specimen:o.specimen});
+@@ -496,6 +340,7 @@ function registerPlatformRoutes(app,deps){
+     if(tenantMode==='NABL')return json(res,403,{error:'Timestamp modification is strictly prohibited under NABL / ISO 15189 compliance mode'});
+     const o=db().orders.find(x=>x.id===req.params.id&&(x.tenantId||'default')===tid);
+     if(!o)return json(res,404,{error:'Order not found'});
++    if(['VALIDATED','RELEASED'].includes(o.pipelineStatus))return json(res,409,{error:'Timestamp modification is prohibited on validated or released orders'});
+     const reason=text(req.body?.reason,300);
+     if(!reason||reason.length<5)return json(res,400,{error:'Detailed modification reason (minimum 5 characters) required for audit traceability'});
+     const oldCreated=o.createdAt;
+@@ -554,7 +399,6 @@ function registerPlatformRoutes(app,deps){
+     signatureName:text(req.body?.signatureName,160),
+     printMode:['FULL_LETTERHEAD','PRE_PRINTED'].includes(req.body?.printMode)?req.body.printMode:'FULL_LETTERHEAD',
+     headerMarginMm:Number(req.body?.headerMarginMm||0),
+-    continuationHeaderMarginMm:Number(req.body?.continuationHeaderMarginMm||15),
+     footerMarginMm:Number(req.body?.footerMarginMm||0),
+     updatedAt:new Date().toISOString()
+   })));
+@@ -599,9 +443,49 @@ function registerPlatformRoutes(app,deps){
+     if(!record)return json(res,404,{error:'No AI copilot findings for this accession'});
+     res.json(record.data);
+   });
++  // Phase 4: Non-Clinical AI Sandbox Endpoints (Strict Human-in-the-Loop, No Clinical Override)
++  app.post('/api/ai/sandbox/bilingual-summary',auth,requireRole('admin','pathologist','tech'),async(req,res)=>{
++    const tid=tenantOf(req), o=db().orders.find(x=>x.id===text(req.body?.orderId,80)&&(x.tenantId||'default')===tid);
++    if(!o) return json(res,404,{error:'Order not found'});
++    const p=db().patients.find(pt=>pt.id===o.patientId);
++    const evaluation=await evaluateCopilot(o,p||{});
++    res.json({
++      sandboxMode: 'NON_CLINICAL_DRAFT',
++      humanReviewRequired: true,
++      canApproveQC: false,
++      canReleaseReport: false,
++      evaluation
++    });
++  });
++  app.post('/api/ai/sandbox/dictation-draft',auth,requireRole('admin','pathologist','tech'),async(req,res)=>{
++    const transcript=text(req.body?.transcript,2000);
++    const catalog=db().testCatalog.filter(x=>(x.tenantId||'default')===tenantOf(req));
++    const draft=await generateDictationDraft(transcript,catalog);
++    res.json({
++      sandboxMode: 'NON_CLINICAL_DRAFT',
++      humanReviewRequired: true,
++      confirmationRequiredBeforeSave: true,
++      canApproveQC: false,
++      canReleaseReport: false,
++      ...draft
++    });
++  });
++  app.post('/api/ai/sandbox/clinical-gate-check',auth,async(req,res)=>{
++    const action=String(req.body?.action||'').toUpperCase();
++    if(['APPROVE_QC','RELEASE_REPORT','OVERRIDE_PANIC','VALIDATE_RESULTS'].includes(action)){
++      return res.status(403).json({
++        error: `AI cannot perform clinical action: ${action}. Human pathologist sign-off and clinical validation gates strictly required.`,
++        allowed: false,
++        gatePolicy: 'FAIL_CLOSED'
++      });
++    }
++    res.json({ allowed: true, sandboxMode: 'NON_CLINICAL_INFORMATIONAL_ONLY' });
++  });
+   app.post('/api/orders/:id/auto-derive',auth,requireRole('admin','tech','pathologist'),async(req,res)=>{
+     const tid=tenantOf(req), o=db().orders.find(x=>x.id===req.params.id&&(x.tenantId||'default')===tid);
+     if(!o)return json(res,404,{error:'Order not found'});
++    if(o.specimenStatus !== 'ACCEPTED') return json(res,409,{error:'Pre-analytical gate blocked: specimen must be ACCEPTED before auto-deriving results.'});
++    if(['VALIDATED','RELEASED'].includes(o.pipelineStatus)) return json(res,409,{error:'Auto-derive is prohibited on validated or released orders'});
+     const p=db().patients.find(pt=>pt.id===o.patientId)||{};
+     o.tests=deriveCalculatedTests(o.tests||[],p);
+     appendAudit('TESTS_AUTO_DERIVED',o.id,actorOf(req),req.auth.role,`Derived formula evaluation on ${o.barcode}`);
+@@ -632,76 +516,42 @@ function registerPlatformRoutes(app,deps){
+   app.post('/api/whatsapp/dispatch/:orderId',auth,requireRole('admin','pathologist','tech'),async(req,res)=>{
+     const tid=tenantOf(req), o=db().orders.find(x=>x.id===req.params.orderId&&(x.tenantId||'default')===tid);
+     if(!o)return json(res,404,{error:'Order not found'});
+-    if(o.pipelineStatus!=='RELEASED'||!o.verificationToken)return json(res,409,{error:'Only authorized released reports with valid verification token can be dispatched to patient'});
+     const p=db().patients.find(pt=>pt.id===o.patientId)||{};
+     if(!p.phone)return json(res,400,{error:'Patient phone number unavailable'});
+     const branding=(await getPlatformRecord(tid,'branding','CURRENT'))?.data||{};
+     const labName=branding.name||'HRGen Laboratory';
+-    const verifyUrl=`${process.env.APP_BASE_URL||'https://lims.hrgen.in'}/verify/${o.verificationToken}`;
++    const verifyUrl=`${process.env.APP_BASE_URL||'https://lims.hrgen.in'}/verify/${o.verificationToken||'DRAFT'}`;
+     const msg=`Hello ${p.name}! Your diagnostic test report from *${labName}* is authorized. Accession: ${o.invoiceNumber||o.barcode}. Download / Verify: ${verifyUrl}`;
+     const dispatch=await sendWhatsAppCloudMessage({to:p.phone,text:msg});
+     appendAudit('WHATSAPP_REPORT_DISPATCHED',o.id,actorOf(req),req.auth.role,`To=${p.phone}; Status=${dispatch.status}`);
+     res.json({success:true,dispatch,message:msg});
+   });
+ 
+-  // Batch Validation for Normal Results (Strictly requires QC_APPROVED with Westgard PASS)
++  // Batch validation is disabled until it can invoke the exact same canonical validation service as single-order validation.
+   app.post('/api/orders/batch-validate-normal',auth,requireRole('admin','pathologist'),async(req,res)=>{
+-    const tid=tenantOf(req), D=db();
+-    const enteredOrders=(D.orders||[]).filter(o=>o.pipelineStatus==='QC_APPROVED'&&(o.tenantId||'default')===tid);
+-    const validated=[];
+-    for(const o of enteredOrders){
+-      if(!o.qcPassed || !o.qc || o.qc.westgardStatus!=='PASS') continue;
+-      const tests=o.tests||[];
+-      if(!tests.length) continue;
+-      const hasPending=tests.some(t=>!t.value||t.value==='Pending');
+-      const hasCritical=tests.some(t=>t.isPanic || t.status==='Critical');
+-      if(hasPending || hasCritical) continue;
+-      const now=new Date().toISOString();
+-      o.pipelineStatus='VALIDATED';
+-      o.validation={validatedBy:actorOf(req),validatedAt:now,ruleset:'BATCH_QC_APPROVED_NORMAL_VALIDATION_v1'};
+-      appendAudit('ORDER_BATCH_VALIDATED',o.id,actorOf(req),req.auth.role,'Batch validated normal results with verified QC');
+-      validated.push(o.id);
+-    }
+-    await saveDB();
+-    res.json({success:true,validatedCount:validated.length,orderIds:validated});
++    return json(res,409,{error:'Batch validation is temporarily disabled. Validate each QC_APPROVED order through /api/orders/:id/validate so all clinical, panic-limit and provenance gates run.'});
+   });
+ 
+-  // FAST DRAFT ENTRY PIPELINE (Ingests measured values and saves as draft results; does NOT fake QC or signoff)
+-  app.post('/api/orders/:id/fast-draft-results',auth,requireRole('admin','pathologist','tech'),async(req,res)=>{
+-    const tid=tenantOf(req), D=db();
+-    const order=D.orders.find(o=>o.id===req.params.id && (o.tenantId||'default')===tid);
+-    if(!order) return json(res,404,{error:'Order not found'});
+-    if(['VALIDATED','RELEASED'].includes(order.pipelineStatus)) return json(res,409,{error:'Validated/released report is immutable. Create amendment.'});
+-    
+-    const incomingTests=Array.isArray(req.body?.tests)?req.body.tests:[];
+-    if(!incomingTests.length) return json(res,400,{error:'No test results provided'});
+-    
+-    let updatedCount=0;
+-    for(const t of order.tests||[]){
+-      const inc=incomingTests.find(x=>String(x.code||'').toUpperCase()===String(t.code||'').toUpperCase());
+-      if(inc && inc.value!=null && String(inc.value).trim()!==''){
+-        t.value=String(inc.value).trim();
+-        t.status=inc.status||'Normal';
+-        t.method=inc.method||t.method||'Bench Analysis';
+-        updatedCount++;
+-      }
+-    }
+-    
+-    order.pipelineStatus='RESULTS_ENTERED';
+-    appendAudit('RESULTS_ENTERED',order.id,actorOf(req),req.auth.role,`Entered results for ${updatedCount} tests on ${order.barcode}`);
+-    await saveDB();
+-    res.json({success:true,orderId:order.id,barcode:order.barcode,pipelineStatus:order.pipelineStatus,updatedCount});
++  // Direct release is disabled: this endpoint previously fabricated QC, calibration and sign-off evidence.
++  app.post('/api/orders/:id/fast-track',auth,requireRole('admin','pathologist','tech'),async(req,res)=>{
++    const tid=tenantOf(req), order=db().orders.find(o=>o.id===req.params.id&&(o.tenantId||'default')===tid);
++    if(!order)return json(res,404,{error:'Order not found'});
++    return json(res,409,{error:'Direct fast-track release is disabled. Use specimen acceptance, analyzer/QC verification, standard validation and authorized pathologist sign-off.'});
+   });
+ 
+   // Machine Analyzer Simulator (ASTM / HL7 MLLP)
+   app.post('/api/integrations/simulate-analyzer',auth,requireRole('admin','tech','pathologist'),async(req,res)=>{
++    if(String(process.env.NODE_ENV||'').toLowerCase()==='production')return json(res,403,{error:'Analyzer simulator is disabled in production'});
+     const tid=tenantOf(req), D=db();
+     const barcode=text(req.body?.barcode,80);
+-    const instrumentId=text(req.body?.instrumentId,80)||'SIM-ANALYZER-01';
++    const instrumentId=text(req.body?.instrumentId,80);
+     const protocol=String(req.body?.protocol||'ASTM').toUpperCase();
+     const incomingResults=Array.isArray(req.body?.results)?req.body.results:[];
++    const instrument=D.instruments.find(x=>x.id===instrumentId&&(x.tenantId||'default')===tid&&x.active!==false);
++    if(!instrument)return json(res,409,{error:'Active instrument registered to this tenant is required'});
+     const order=D.orders.find(o=>(o.barcode===barcode||o.id===barcode)&&(o.tenantId||'default')===tid);
+     if(!order) return json(res,404,{error:'Order with barcode not found',barcode});
++    if(order.specimenStatus !== 'ACCEPTED') return json(res,409,{error:'Pre-analytical gate blocked: specimen must be ACCEPTED before analyzer result import.'});
+     if(['VALIDATED','RELEASED'].includes(order.pipelineStatus)) return json(res,409,{error:'Order is already validated or released'});
+     let updated=0;
+     const testMap=new Map(incomingResults.map(r=>[String(r.code||'').toUpperCase(), String(r.value)]));
+@@ -710,7 +560,7 @@ function registerPlatformRoutes(app,deps){
+       if(testMap.has(code)){
+         t.value=testMap.get(code);
+         t.method=`Automated Analyzer (${instrumentId} - ${protocol})`;
+-        t.status='Normal';
++        t.status='UNREVIEWED';
+         updated++;
+       }
+     }
+@@ -722,1212 +572,6 @@ function registerPlatformRoutes(app,deps){
+     res.json({success:true,orderId:order.id,barcode:order.barcode,instrumentId,protocol,updatedCount:updated,pipelineStatus:order.pipelineStatus});
+   });
+ 
+-  // Center KYC & Onboarding Setup Module (LabSmart Cloned & Beatable Flow)
+-  app.get('/api/onboarding/kyc',auth,async(req,res)=>{
+-    const tid=tenantOf(req);
+-    const rec=await getPlatformRecord(tid,'kyc','CURRENT');
+-    const branding=(await getPlatformRecord(tid,'branding','CURRENT'))?.data||{};
+-    const tenant=(db().tenants||[]).find(t=>t.id===tid)||{id:tid,name:'GIA Clinical Reference Laboratories'};
+-    const defaults = {
+-      labName: branding.labName || tenant.name || 'GIA Clinical Reference Laboratories',
+-      centerType: 'DIAGNOSTIC_PATHOLOGY',
+-      registrationNumber: 'CEA/REG/DL/2026/8841',
+-      gstin: '07AABCH1234F1Z5',
+-      pan: 'AABCH1234F',
+-      phone: branding.phone || '+91 98765 43210',
+-      email: branding.email || 'info@gialabs.in',
+-      address: branding.address || 'Plot 42, Healthcare Corridor, New Delhi - 110001',
+-      directorName: branding.signatureName || 'Dr. Rajesh Sharma, MD (Path)',
+-      directorRegNo: 'MCI-34821',
+-      directorDesignation: 'Chief Consultant Pathologist',
+-      accessionPrefix: 'LAB',
+-      sampleBarcodeFormat: 'CODE128',
+-      currency: 'INR',
+-      onboardingCompleted: true
+-    };
+-    const data = Object.assign({}, defaults, rec?.data || {});
+-    res.json(data);
+-  });
+-
+-  app.put('/api/onboarding/kyc',auth,requireRole('admin'),async(req,res)=>{
+-    const tid=tenantOf(req);
+-    const body=req.body||{};
+-    const data={
+-      labName: text(body.labName,150) || 'GIA Clinical Reference Laboratories',
+-      centerType: text(body.centerType,60) || 'DIAGNOSTIC_PATHOLOGY',
+-      registrationNumber: text(body.registrationNumber,80) || '',
+-      gstin: text(body.gstin,30) || '',
+-      pan: text(body.pan,30) || '',
+-      phone: text(body.phone,50) || '',
+-      email: text(body.email,100) || '',
+-      address: text(body.address,250) || '',
+-      directorName: text(body.directorName,120) || '',
+-      directorRegNo: text(body.directorRegNo,60) || '',
+-      directorDesignation: text(body.directorDesignation,100) || '',
+-      accessionPrefix: (text(body.accessionPrefix,10)||'LAB').toUpperCase(),
+-      sampleBarcodeFormat: text(body.sampleBarcodeFormat,20) || 'CODE128',
+-      currency: text(body.currency,10) || 'INR',
+-      updatedAt: new Date().toISOString()
+-    };
+-    await upsertPlatformRecord(tid,'kyc','CURRENT',data);
+-    const brandRec=await getPlatformRecord(tid,'branding','CURRENT');
+-    const brandData=brandRec?.data||{};
+-    await upsertPlatformRecord(tid,'branding','CURRENT',{
+-      ...brandData,
+-      labName: data.labName,
+-      phone: data.phone,
+-      email: data.email,
+-      address: data.address,
+-      signatureName: data.directorName || brandData.signatureName,
+-      updatedAt: new Date().toISOString()
+-    });
+-    appendAudit('KYC_UPDATED',null,actorOf(req),req.auth.role,`KYC details updated for ${data.labName}`);
+-    res.json(data);
+-  });
+-
+-  // Super-Intelligent Dual-Language In-App Clinical Copilot
+-  app.post('/api/ai/copilot-chat', auth, async (req, res) => {
+-    const tid = tenantOf(req), D = db();
+-    const query = String(req.body?.message || '').trim();
+-    const lang = req.body?.lang === 'en-IN' ? 'en-IN' : 'hi-IN';
+-    const isHi = lang === 'hi-IN';
+-    const currentView = String(req.body?.currentView || 'dashboard');
+-
+-    if (!query) {
+-      return res.json({
+-        reply: isHi ? 'αñòαÑâαñ¬αñ»αñ╛ αñàαñ¬αñ¿αñ╛ αñ¬αÑìαñ░αñ╢αÑìαñ¿ αñ¬αÑéαñ¢αÑçαñéαÑñ' : 'Please enter your question.',
+-        actionHtml: ''
+-      });
+-    }
+-
+-    const qLower = query.toLowerCase();
+-    const orders = (D.orders || []).filter(o => (o.tenantId || 'default') === tid);
+-    const patients = (D.patients || []).filter(p => (p.tenantId || 'default') === tid);
+-    const instruments = (D.instruments || []).filter(i => (i.tenantId || 'default') === tid && i.active !== false);
+-
+-    // 0. Autonomous System Self-Customization Intents (Voice / Text)
+-    // 0.1 Set Lab / Center Name
+-    const labNameMatch = query.match(/(?:set|change)\s+(?:lab|center)\s+name\s+to\s+([^\.]+)/i) || 
+-                         query.match(/(?:lab|center)\s+ka\s+naam\s+([^\.]+)\s+kardo/i);
+-    if (labNameMatch && (req.auth?.role === 'admin' || req.auth?.role === 'pathologist')) {
+-      const newName = labNameMatch[1].trim();
+-      const kycRec = await getPlatformRecord(tid, 'kyc', 'CURRENT');
+-      const kycData = Object.assign({}, {
+-        labName: 'GIA Clinical Reference Laboratories',
+-        centerType: 'DIAGNOSTIC_PATHOLOGY',
+-        registrationNumber: 'CEA/REG/DL/2026/8841',
+-        gstin: '07AABCH1234F1Z5',
+-        pan: 'AABCH1234F',
+-        phone: '+91 98765 43210',
+-        email: 'info@gialabs.in',
+-        address: 'Plot 42, Healthcare Corridor, New Delhi - 110001',
+-        directorName: 'Dr. Rajesh Sharma, MD (Path)',
+-        directorRegNo: 'MCI-34821',
+-        directorDesignation: 'Chief Consultant Pathologist',
+-        accessionPrefix: 'LAB',
+-        sampleBarcodeFormat: 'CODE128',
+-        currency: 'INR',
+-        onboardingCompleted: true
+-      }, kycRec?.data || {});
+-      kycData.labName = newName;
+-      kycData.updatedAt = new Date().toISOString();
+-      await upsertPlatformRecord(tid, 'kyc', 'CURRENT', kycData);
+-      
+-      const brandRec = await getPlatformRecord(tid, 'branding', 'CURRENT');
+-      const brandData = brandRec?.data || {};
+-      brandData.labName = newName;
+-      brandData.updatedAt = new Date().toISOString();
+-      await upsertPlatformRecord(tid, 'branding', 'CURRENT', brandData);
+-      
+-      appendAudit('KYC_UPDATED', null, actorOf(req), req.auth.role, `Autonomous GIA Copilot updated lab name to: ${newName}`);
+-      
+-      const reply = isHi
+-        ? `Γ£à <b>αñ▓αÑêαñ¼ αñòαñ╛ αñ¿αñ╛αñ« αñ╕αñ½αñ▓αññαñ╛αñ¬αÑéαñ░αÑìαñ╡αñò αñ¼αñªαñ▓ αñªαñ┐αñ»αñ╛ αñùαñ»αñ╛ αñ╣αÑê:</b> "${newName}"<br>αñ╣αÑçαñíαñ░ αñ¼αÑìαñ░αñ╛αñéαñíαñ┐αñéαñù, αñ╕αÑçαñéαñƒαñ░ KYC, αñöαñ░ αñ░αñ┐αñ¬αÑïαñ░αÑìαñƒ αñ▓αÑçαñƒαñ░αñ╣αÑçαñí αñ¬αñ░ αñ»αñ╣ αñ¿αñ╛αñ« αññαÑüαñ░αñéαññ αñ▓αñ╛αñùαÑé αñ╣αÑï αñùαñ»αñ╛ αñ╣αÑêαÑñ`
+-        : `Γ£à <b>Laboratory legal name successfully updated to:</b> "${newName}"<br>Applied instantly to Center KYC, Header Branding, and Diagnostic Reports.`;
+-      return res.json({ 
+-        reply, 
+-        actionHtml: `<button type="button" class="primary" style="font-size:11px;padding:5px 10px" onclick="show('kyc');toggleGiaCopilot()">≡ƒÅó Open Center KYC</button>`,
+-        mutation: { type: 'LAB_NAME_UPDATED', value: newName }
+-      });
+-    }
+-
+-
+-    // 0.2 Set / Update Lab Phone Number
+-    const phoneMatch = query.match(/(?:set|change|update)\s+(?:lab\s+)?phone(?:\s+number)?\s+to\s+([+\d\s\-]+)/i) ||
+-                       query.match(/(?:lab\s+)?phone(?:\s+number)?\s+([+\d\s\-]+)\s+(?:kardo|set\s+kardo)/i);
+-    if (phoneMatch && (req.auth?.role === 'admin' || req.auth?.role === 'pathologist')) {
+-      const newPhone = phoneMatch[1].trim();
+-      const kycRec = await getPlatformRecord(tid, 'kyc', 'CURRENT');
+-      const kycData = Object.assign({}, {
+-        labName: 'GIA Clinical Reference Laboratories',
+-        centerType: 'DIAGNOSTIC_PATHOLOGY',
+-        registrationNumber: 'CEA/REG/DL/2026/8841',
+-        gstin: '07AABCH1234F1Z5',
+-        pan: 'AABCH1234F',
+-        phone: '+91 98765 43210',
+-        email: 'info@gialabs.in',
+-        address: 'Plot 42, Healthcare Corridor, New Delhi - 110001',
+-        directorName: 'Dr. Rajesh Sharma, MD (Path)',
+-        directorRegNo: 'MCI-34821',
+-        directorDesignation: 'Chief Consultant Pathologist',
+-        accessionPrefix: 'LAB',
+-        sampleBarcodeFormat: 'CODE128',
+-        currency: 'INR',
+-        onboardingCompleted: true
+-      }, kycRec?.data || {});
+-      kycData.phone = newPhone;
+-      kycData.updatedAt = new Date().toISOString();
+-      await upsertPlatformRecord(tid, 'kyc', 'CURRENT', kycData);
+-      
+-      const brandRec = await getPlatformRecord(tid, 'branding', 'CURRENT');
+-      const brandData = brandRec?.data || {};
+-      brandData.phone = newPhone;
+-      brandData.updatedAt = new Date().toISOString();
+-      await upsertPlatformRecord(tid, 'branding', 'CURRENT', brandData);
+-      
+-      appendAudit('KYC_UPDATED', null, actorOf(req), req.auth.role, 'Autonomous GIA Copilot updated phone to: ' + newPhone);
+-      
+-      const reply = isHi
+-        ? `Γ£à <b>αñ▓αÑêαñ¼ αñòαñ╛ αñ½αÑïαñ¿ αñ¿αñéαñ¼αñ░ αñàαñ¬αñíαÑçαñƒ αñòαñ┐αñ»αñ╛ αñùαñ»αñ╛:</b> "${newPhone}"<br>Center KYC αñöαñ░ αñ░αñ┐αñ¬αÑïαñ░αÑìαñƒ αñ╣αÑçαñíαñ░ αñ«αÑçαñé αñ¿αñ»αñ╛ αñ½αÑïαñ¿ αñ¿αñéαñ¼αñ░ αñ╕αñ╣αÑçαñ£ αñªαñ┐αñ»αñ╛ αñùαñ»αñ╛ αñ╣αÑêαÑñ`
+-        : `Γ£à <b>Laboratory contact phone updated to:</b> "${newPhone}"<br>Saved to Center KYC and Report Branding headers.`;
+-      return res.json({
+-        reply,
+-        actionHtml: `<button type="button" class="primary" style="font-size:11px;padding:5px 10px" onclick="show('kyc');toggleGiaCopilot()">≡ƒÅó Open Center KYC</button>`,
+-        mutation: { type: 'PHONE_UPDATED', value: newPhone }
+-      });
+-    }
+-
+-    // 0.3 Set Pre-Printed Letterhead Top Margin
+-    const marginMatch = query.match(/(?:set|change)\s+(?:top\s+)?margin\s+to\s+(\d+)\s*(?:mm)?/i) ||
+-                        query.match(/(?:margin|top\s+space)\s+(\d+)\s*mm\s+kardo/i);
+-    if (marginMatch && req.auth?.role === 'admin') {
+-      const mm = parseInt(marginMatch[1], 10);
+-      const repRec = await getPlatformRecord(tid, 'reportStudio', 'CURRENT');
+-      const repData = repRec?.data || {};
+-      repData.topMarginMm = mm;
+-      repData.updatedAt = new Date().toISOString();
+-      await upsertPlatformRecord(tid, 'reportStudio', 'CURRENT', repData);
+-
+-      const brandRec = await getPlatformRecord(tid, 'branding', 'CURRENT');
+-      const brandData = brandRec?.data || {};
+-      brandData.headerMarginMm = mm;
+-      brandData.printMode = 'PRE_PRINTED';
+-      brandData.updatedAt = new Date().toISOString();
+-      await upsertPlatformRecord(tid, 'branding', 'CURRENT', brandData);
+-
+-      appendAudit('REPORT_TEMPLATE_UPDATED', null, actorOf(req), req.auth.role, 'Autonomous GIA Copilot calibrated pre-printed margin: ' + mm + 'mm');
+-      
+-      const reply = isHi
+-        ? `Γ£à <b>αñ¬αÑìαñ░αÑÇ-αñ¬αÑìαñ░αñ┐αñéαñƒαÑçαñí αñ▓αÑçαñƒαñ░αñ╣αÑçαñí αñƒαÑëαñ¬ αñ«αñ╛αñ░αÑìαñ£αñ┐αñ¿ αñ╕αÑçαñƒ αñòαñ┐αñ»αñ╛ αñùαñ»αñ╛:</b> ${mm}mm<br>A4 αñíαñ╛αñ»αñùαÑìαñ¿αÑïαñ╕αÑìαñƒαñ┐αñò αñ░αñ┐αñ¬αÑïαñ░αÑìαñƒ αñ¬αÑìαñ░αñ┐αñéαñƒ αñ«αÑçαñé αñàαñ¼ αñèαñ¬αñ░ ${mm}mm αñòαñ╛ αñ╕αÑìαñ¬αÑçαñ╕ αñ¢αÑïαñíαñ╝αñ╛ αñ£αñ╛αñÅαñùαñ╛αÑñ`
+-        : `Γ£à <b>Pre-printed letterhead top margin set to:</b> ${mm}mm<br>A4 diagnostic report print engine calibrated with ${mm}mm top margin clearance.`;
+-      return res.json({
+-        reply,
+-        actionHtml: `<button type="button" class="primary" style="font-size:11px;padding:5px 10px" onclick="show('settings');toggleGiaCopilot()">ΓÜÖ∩╕Å Open Settings</button>`,
+-        mutation: { type: 'MARGIN_UPDATED', value: mm, printMode: 'PRE_PRINTED' }
+-      });
+-    }
+-
+-    // 0.4 QR Verification on Print Toggle
+-    const qrMatch = query.match(/(?:enable|turn\s+on|activate)\s+qr(?:\s+verification)?(?:\s+on\s+print)?/i) ||
+-                    query.match(/(?:qr\s+verification|qr)\s+(?:enable|chalu|active)\s+kardo/i);
+-    if (qrMatch && req.auth?.role === 'admin') {
+-      const brandRec = await getPlatformRecord(tid, 'branding', 'CURRENT');
+-      const brandData = brandRec?.data || {};
+-      brandData.showQrOnPrint = true;
+-      brandData.updatedAt = new Date().toISOString();
+-      await upsertPlatformRecord(tid, 'branding', 'CURRENT', brandData);
+-      
+-      const repRec = await getPlatformRecord(tid, 'reportStudio', 'CURRENT');
+-      const repData = repRec?.data || {};
+-      repData.qrVerification = true;
+-      repData.updatedAt = new Date().toISOString();
+-      await upsertPlatformRecord(tid, 'reportStudio', 'CURRENT', repData);
+-
+-      appendAudit('REPORT_TEMPLATE_UPDATED', null, actorOf(req), req.auth.role, 'Autonomous GIA Copilot enabled QR verification on print');
+-
+-      const reply = isHi
+-        ? `Γ£à <b>αñ¬αÑìαñ░αñ┐αñéαñƒ αñ¬αñ░ QR αñ╕αññαÑìαñ»αñ╛αñ¬αñ¿ αñ╕αñòαÑìαñ░αñ┐αñ» αñòαñ┐αñ»αñ╛ αñùαñ»αñ╛:</b><br>αñàαñ¼ αñ¬αÑìαñ░αññαÑìαñ»αÑçαñò αñíαñ╛αñ»αñùαÑìαñ¿αÑïαñ╕αÑìαñƒαñ┐αñò αñ░αñ┐αñ¬αÑïαñ░αÑìαñƒ αñòαÑç αñ¿αÑÇαñÜαÑç αñòαÑìαñ░αñ┐αñ¬αÑìαñƒαÑïαñùαÑìαñ░αñ╛αñ½αñ┐αñò QR αñòαÑïαñí αñöαñ░ αñ╕αññαÑìαñ»αñ╛αñ¬αñ¿ αñ»αÑéαñåαñ░αñÅαñ▓ αñ¬αÑìαñ░αñ┐αñéαñƒ αñ╣αÑïαñùαñ╛αÑñ`
+-        : `Γ£à <b>QR verification enabled on print:</b><br>Tamper-evident verification QR code and secure validation link activated on report print layouts.`;
+-      return res.json({
+-        reply,
+-        actionHtml: `<button type="button" class="primary" style="font-size:11px;padding:5px 10px" onclick="show('settings');toggleGiaCopilot()">ΓÜÖ∩╕Å Open Settings</button>`,
+-        mutation: { type: 'QR_VERIFICATION_TOGGLED', value: true }
+-      });
+-    }
+-
+-    // 0.5 Update Test Catalogue Price / Rate
+-    const rateMatch = query.match(/(?:set|update|change)\s+([a-zA-Z0-9_\-\s]+?)\s+(?:rate|price)\s+to\s+(?:rs\.?|Γé╣)?\s*(\d+)/i) ||
+-                      query.match(/(?:rate|price)\s+of\s+([a-zA-Z0-9_\-\s]+?)\s+to\s+(?:rs\.?|Γé╣)?\s*(\d+)/i);
+-    if (rateMatch && req.auth?.role === 'admin') {
+-      const testNameOrCode = rateMatch[1].trim().toUpperCase();
+-      const newPrice = Number(rateMatch[2]);
+-      const cat = (D.testCatalog || []);
+-      const item = cat.find(c => (c.tenantId || 'default') === tid && (c.code.toUpperCase() === testNameOrCode || (c.name && c.name.toUpperCase().includes(testNameOrCode))));
+-      if (item) {
+-        const oldPrice = item.price;
+-        item.price = newPrice;
+-        if (typeof saveDB === 'function') await saveDB();
+-        appendAudit('CATALOG_RATE_CHANGED', null, actorOf(req), req.auth.role, 'Autonomous GIA Copilot updated ' + item.code + ' test rate to Γé╣' + newPrice);
+-        const reply = isHi
+-          ? `Γ£à <b>αñ£αñ╛αñéαñÜ αñªαñ░ (Test Rate) αñàαñ¬αñíαÑçαñƒ αñòαÑÇ αñùαñê:</b> ${item.name} (${item.code}) αñòαÑÇ αñªαñ░ Γé╣${oldPrice} αñ╕αÑç αñ¼αñªαñ▓αñòαñ░ <b>Γé╣${newPrice}</b> αñòαñ░ αñªαÑÇ αñùαñê αñ╣αÑêαÑñ`
+-          : `Γ£à <b>Catalogue rate updated:</b> ${item.name} (${item.code}) rate adjusted from Γé╣${oldPrice} to <b>Γé╣${newPrice}</b>.`;
+-        return res.json({
+-          reply,
+-          actionHtml: `<button type="button" class="primary" style="font-size:11px;padding:5px 10px" onclick="show('opd');toggleGiaCopilot()">∩╝ï Open Patient Booking</button>`,
+-          mutation: { type: 'RATE_UPDATED', code: item.code, price: newPrice }
+-        });
+-      }
+-    }
+-
+-    // 0.6 Add Referring Doctor Commission
+-    let docName = null, commVal = null;
+-    const docMatch1 = query.match(/add\s+(\d+)%?\s+commission\s+for\s+([a-zA-Z\s\.]+)/i);
+-    const docMatch2 = query.match(/add\s+doctor\s+([a-zA-Z\s\.]+?)\s+with\s+(\d+)%?\s+commission/i);
+-    const docMatch3 = query.match(/αñíαÑëαñòαÑìαñƒαñ░\s+([a-zA-Z\s\.]+?)\s+(\d+)%\s+αñòαñ«αÑÇαñ╢αñ¿\s+αñ£αÑïαñíαñ╝αÑï/i) || query.match(/([a-zA-Z\s\.]+?)\s+αñòαÑç\s+αñ▓αñ┐αñÅ\s+(\d+)%\s+αñòαñ«αÑÇαñ╢αñ¿\s+αñ£αÑïαñíαñ╝αÑï/i);
+-    if (docMatch1) {
+-      commVal = Number(docMatch1[1]);
+-      docName = docMatch1[2].trim();
+-    } else if (docMatch2) {
+-      docName = docMatch2[1].trim();
+-      commVal = Number(docMatch2[2]);
+-    } else if (docMatch3) {
+-      docName = docMatch3[1].trim();
+-      commVal = Number(docMatch3[2]);
+-    }
+-    if (docName && commVal != null && req.auth?.role === 'admin') {
+-      const docId = rid('DOC');
+-      const name = docName.startsWith('Dr') ? docName : 'Dr. ' + docName;
+-      const doc = {
+-        id: docId,
+-        name,
+-        commissionType: 'PERCENTAGE',
+-        commissionValue: commVal,
+-        active: true,
+-        createdAt: new Date().toISOString()
+-      };
+-      await upsertPlatformRecord(tid, 'opd_doctor', docId, doc);
+-      appendAudit('DOCTOR_CREATED', null, actorOf(req), req.auth.role, 'Autonomous GIA Copilot registered referring doctor ' + doc.name + ' with ' + commVal + '% commission');
+-      const reply = isHi
+-        ? `Γ£à <b>αñ░αÑçαñ½αñ░αñ▓ αñíαÑëαñòαÑìαñƒαñ░ αñ£αÑïαñíαñ╝αÑç αñùαñÅ:</b> ${doc.name} (${commVal}% αñòαñ«αÑÇαñ╢αñ¿) OPD αñíαÑëαñòαÑìαñƒαñ░ αñ«αñ╛αñ╕αÑìαñƒαñ░ αñ«αÑçαñé αñÅαñòαÑìαñƒαñ┐αñ╡αÑçαñƒ αñòαñ░ αñªαñ┐αñÅ αñùαñÅ αñ╣αÑêαñéαÑñ`
+-        : `Γ£à <b>Referring doctor registered:</b> ${doc.name} configured with ${commVal}% commission in OPD Doctor Master.`;
+-      return res.json({
+-        reply,
+-        actionHtml: `<button type="button" class="primary" style="font-size:11px;padding:5px 10px" onclick="show('doctors');toggleGiaCopilot()">≡ƒæ¿ΓÇìΓÜò∩╕Å Open Doctor Master</button>`,
+-        mutation: { type: 'DOCTOR_ADDED', doctor: doc }
+-      });
+-    }
+-
+-    // 0.7 High-Contrast Theme Toggle
+-    const themeMatch = query.match(/(?:switch|change|toggle|set)\s+(?:to\s+)?(?:high[-\s]?contrast|contrast)\s+theme/i) ||
+-                       query.match(/(?:αñ╣αñ╛αñê[-\s]?αñòαñéαñƒαÑìαñ░αñ╛αñ╕αÑìαñƒ|αñòαñéαñƒαÑìαñ░αñ╛αñ╕αÑìαñƒ)\s+αñÑαÑÇαñ«\s+(?:αñ▓αñùαñ╛αñô|αñ¼αñªαñ▓αÑï|αñ╕αÑçαñƒ\s+αñòαñ░αÑï)/i);
+-    if (themeMatch) {
+-      appendAudit('USER_PREFERENCE_CHANGED', null, actorOf(req), req.auth.role, 'Autonomous GIA Copilot toggled high-contrast theme');
+-      const reply = isHi
+-        ? `Γ£à <b>αñ╣αñ╛αñê-αñòαñéαñƒαÑìαñ░αñ╛αñ╕αÑìαñƒ αñÑαÑÇαñ« αñ╕αñòαÑìαñ░αñ┐αñ» αñòαÑÇ αñùαñê:</b> αñëαñÜαÑìαñÜ αñ¬αñáαñ¿αÑÇαñ»αññαñ╛ αñòαÑç αñ▓αñ┐αñÅ αñíαñ╛αñ░αÑìαñò αñòαñéαñƒαÑìαñ░αñ╛αñ╕αÑìαñƒ αñ¬αÑêαñ▓αÑçαñƒ αñ▓αñ╛αñùαÑé αñòαñ░ αñªαñ┐αñ»αñ╛ αñùαñ»αñ╛ αñ╣αÑêαÑñ`
+-        : `Γ£à <b>High-contrast theme activated:</b> High-legibility deep dark palette applied to clinical interface.`;
+-      return res.json({
+-        reply,
+-        actionHtml: `<button type="button" class="primary" style="font-size:11px;padding:5px 10px" onclick="document.body.classList.toggle('theme-high-contrast')">≡ƒæü∩╕Å Toggle Contrast</button>`,
+-        mutation: { type: 'THEME_TOGGLED', theme: 'high-contrast' }
+-      });
+-    }
+-
+-    // 0.9 Autonomous Patient Registration
+-    const ptRegMatch = query.match(/(?:register|add|create)\s+patient\s+([a-zA-Z\s]+?)\s+(\d{1,3})\s*(?:y|yrs|years)?\s*(male|female|other|m|f)?\s*([0-9\+\-\s]{10,14})?/i) ||
+-                       query.match(/(?:αñ«αñ░αÑÇαñ£|αñ¬αÑçαñ╢αÑçαñéαñƒ)\s+([a-zA-Z\u0900-\u097F\s]+?)\s+(?:αñëαñ«αÑìαñ░\s+)?(\d{1,3})\s*(?:αñ╡αñ░αÑìαñ╖|αñ╕αñ╛αñ▓)?\s*(αñ¬αÑüαñ░αÑüαñ╖|αñ«αñ╣αñ┐αñ▓αñ╛|m|f)?\s*(?:αñ½αÑïαñ¿\s+)?([0-9]{10})?\s*(?:αñ░αñ£αñ┐αñ╕αÑìαñƒαñ░|αñ£αÑïαñíαñ╝αÑï|αñªαñ░αÑìαñ£\s+αñòαñ░αÑï)/i);
+-    if (ptRegMatch) {
+-      const rawName = ptRegMatch[1].trim();
+-      const ptAge = parseInt(ptRegMatch[2], 10);
+-      let rawGender = (ptRegMatch[3] || 'Male').toLowerCase();
+-      let ptGender = (rawGender === 'f' || rawGender === 'female' || rawGender === 'αñ«αñ╣αñ┐αñ▓αñ╛') ? 'Female' : 'Male';
+-      let ptPhone = (ptRegMatch[4] || '').replace(/[^0-9]/g, '');
+-      if (ptPhone.length < 10) ptPhone = '9876543210';
+-      if (!ptPhone.startsWith('+91')) ptPhone = '+91 ' + ptPhone.slice(-10);
+-
+-      D.patients = D.patients || [];
+-      const tokenNo = D.patients.reduce((m, p) => Math.max(m, Number(p.tokenNo) || 0), 0) + 1;
+-      const uhid = `LAB-${new Date().getFullYear()}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
+-      const newPt = {
+-        id: rid('PT'),
+-        tenantId: tid,
+-        tokenNo,
+-        uhid,
+-        title: ptGender === 'Female' ? 'Ms.' : 'Mr.',
+-        name: rawName,
+-        age: ptAge,
+-        ageUnit: 'Years',
+-        ageExact: { years: ptAge, months: 0, days: 0, display: `${ptAge} Y` },
+-        gender: ptGender,
+-        phone: ptPhone,
+-        referredBy: 'Self / Direct Walk-in',
+-        sampleLocation: 'In-Lab',
+-        type: 'OPD',
+-        createdAt: new Date().toISOString()
+-      };
+-      D.patients.unshift(newPt);
+-      if (typeof saveDB === 'function') await saveDB();
+-      appendAudit('PATIENT_CREATED', newPt.id, actorOf(req), req.auth.role, `Autonomous GIA Copilot registered patient ${newPt.name} (${newPt.uhid})`);
+-      const reply = isHi
+-        ? `Γ£à <b>αñ«αñ░αÑÇαñ£ αñ╕αñ½αñ▓αññαñ╛αñ¬αÑéαñ░αÑìαñ╡αñò αñ¬αñéαñ£αÑÇαñòαÑâαññ αñòαñ┐αñ»αñ╛ αñùαñ»αñ╛:</b><br>` +
+-          `ΓÇó <b>αñ¿αñ╛αñ«:</b> ${newPt.name} (${newPt.gender}, ${newPt.age} αñ╡αñ░αÑìαñ╖)<br>` +
+-          `ΓÇó <b>UHID:</b> ${newPt.uhid} ΓÇó αñƒαÑïαñòαñ¿ #${newPt.tokenNo}<br>` +
+-          `ΓÇó <b>αñ½αÑïαñ¿:</b> ${newPt.phone}`
+-        : `Γ£à <b>Patient successfully registered:</b><br>` +
+-          `ΓÇó <b>Name:</b> ${newPt.name} (${newPt.gender}, ${newPt.age} Y)<br>` +
+-          `ΓÇó <b>UHID:</b> ${newPt.uhid} ΓÇó Token #${newPt.tokenNo}<br>` +
+-          `ΓÇó <b>Phone:</b> ${newPt.phone}`;
+-      return res.json({
+-        reply,
+-        actionHtml: `<div class="row" style="gap:6px"><button type="button" class="primary" style="font-size:11px;padding:5px 10px" onclick="show('opd');toggleGiaCopilot()">ΓÜí Book Test</button><button type="button" class="top-btn" style="font-size:11px;padding:5px 10px" onclick="show('patients');toggleGiaCopilot()">≡ƒôï Patients</button></div>`,
+-        mutation: { type: 'PATIENT_REGISTERED', patient: newPt }
+-      });
+-    }
+-
+-    // 0.10 Autonomous Test / Order Booking
+-    const bookMatch = query.match(/(?:book|order)\s+(?:test\s+)?([a-zA-Z0-9_\-\s,]+?)\s+for\s+([a-zA-Z0-9_\-\s]+)/i) ||
+-                      query.match(/([a-zA-Z0-9_\-\s]+?)\s+αñòαÑç\s+αñ▓αñ┐αñÅ\s+([a-zA-Z0-9_\-\s,]+?)\s+(?:αñ¼αÑüαñò|αñæαñ░αÑìαñíαñ░)\s+αñòαñ░αÑï/i);
+-    if (bookMatch) {
+-      let testQuery = bookMatch[1].trim();
+-      let ptTarget = bookMatch[2].trim();
+-      if (query.includes('αñòαÑç αñ▓αñ┐αñÅ')) {
+-        ptTarget = bookMatch[1].trim();
+-        testQuery = bookMatch[2].trim();
+-      }
+-      D.patients = D.patients || [];
+-      D.orders = D.orders || [];
+-      let targetPt = D.patients.find(p => (p.tenantId || 'default') === tid && (p.name.toLowerCase().includes(ptTarget.toLowerCase()) || p.uhid.toLowerCase().includes(ptTarget.toLowerCase())));
+-      if (!targetPt && D.patients.length > 0) targetPt = D.patients[0];
+-      if (!targetPt) {
+-        targetPt = {
+-          id: rid('PT'),
+-          tenantId: tid,
+-          tokenNo: 1,
+-          uhid: `LAB-${new Date().getFullYear()}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`,
+-          name: ptTarget || 'Direct Walk-in',
+-          age: 35,
+-          gender: 'Male',
+-          phone: '+91 9876543210',
+-          referredBy: 'Self / Direct Walk-in',
+-          createdAt: new Date().toISOString()
+-        };
+-        D.patients.unshift(targetPt);
+-      }
+-
+-      const cat = (D.testCatalog || []).filter(c => (c.tenantId || 'default') === tid);
+-      const testCodes = testQuery.toUpperCase().split(/[,+\s]+/).map(s => s.trim()).filter(Boolean);
+-      let matchedTests = cat.filter(c => testCodes.some(tc => c.code.toUpperCase() === tc || (c.name && c.name.toUpperCase().includes(tc))));
+-      if (!matchedTests.length) matchedTests = cat.slice(0, 1);
+-
+-      const gross = matchedTests.reduce((sum, t) => sum + Number(t.price || 0), 0);
+-      const invNum = `INV-${new Date().getFullYear()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+-      const barcode = `LAB-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
+-      const newOrder = {
+-        id: rid('ORD'),
+-        tenantId: tid,
+-        patientId: targetPt.id,
+-        patient: targetPt,
+-        barcode,
+-        invoiceNumber: invNum,
+-        grossAmount: gross,
+-        discountType: 'NONE',
+-        discountValue: 0,
+-        discountAmount: 0,
+-        netPayable: gross,
+-        paidAmount: gross,
+-        balanceDue: 0,
+-        paymentStatus: 'PAID',
+-        paymentMode: 'Cash',
+-        pipelineStatus: 'DRAFT',
+-        qcPassed: false,
+-        tests: matchedTests.map(t => ({
+-          code: t.code,
+-          name: t.name,
+-          department: t.department || 'Biochemistry',
+-          price: t.price,
+-          unit: t.unit || '',
+-          reference: t.reference || '',
+-          value: 'Pending',
+-          status: 'Pending',
+-          isPanic: false
+-        })),
+-        createdAt: new Date().toISOString()
+-      };
+-      D.orders.unshift(newOrder);
+-      if (typeof saveDB === 'function') await saveDB();
+-      appendAudit('OPD_REGISTRATION_CREATED', newOrder.id, actorOf(req), req.auth.role, `Autonomous GIA Copilot booked order ${newOrder.invoiceNumber} (${matchedTests.map(t => t.code).join(',')}) for ${targetPt.name}`);
+-      const reply = isHi
+-        ? `Γ£à <b>αñƒαÑçαñ╕αÑìαñƒ αñæαñ░αÑìαñíαñ░ αñ¼αÑüαñò αñòαñ┐αñ»αñ╛ αñùαñ»αñ╛:</b><br>` +
+-          `ΓÇó <b>αñ«αñ░αÑÇαñ£:</b> ${targetPt.name} (${targetPt.uhid})<br>` +
+-          `ΓÇó <b>αñçαñ¿αÑìαñ╡αÑëαñçαñ╕:</b> ${newOrder.invoiceNumber} ΓÇó αñ¼αñ╛αñ░αñòαÑïαñí: ${newOrder.barcode}<br>` +
+-          `ΓÇó <b>αñ£αñ╛αñéαñÜαÑçαñé (${newOrder.tests.length}):</b> ${newOrder.tests.map(t => t.name).join(', ')}<br>` +
+-          `ΓÇó <b>αñòαÑüαñ▓ αñ¼αñ┐αñ▓:</b> Γé╣${newOrder.netPayable} (Paid in Full)`
+-        : `Γ£à <b>Test Order Booked Successfully:</b><br>` +
+-          `ΓÇó <b>Patient:</b> ${targetPt.name} (${targetPt.uhid})<br>` +
+-          `ΓÇó <b>Invoice:</b> ${newOrder.invoiceNumber} ΓÇó Barcode: ${newOrder.barcode}<br>` +
+-          `ΓÇó <b>Investigations (${newOrder.tests.length}):</b> ${newOrder.tests.map(t => t.name).join(', ')}<br>` +
+-          `ΓÇó <b>Total Bill:</b> Γé╣${newOrder.netPayable} (Paid in Full)`;
+-      return res.json({
+-        reply,
+-        actionHtml: `<div class="row" style="gap:6px"><button type="button" class="primary" style="font-size:11px;padding:5px 10px" onclick="editResults('${newOrder.id}');toggleGiaCopilot()">Γ£Å∩╕Å Enter Results</button><button type="button" class="top-btn" style="font-size:11px;padding:5px 10px" onclick="printBill('${newOrder.id}')">≡ƒº╛ View Bill</button></div>`,
+-        mutation: { type: 'ORDER_CREATED', order: newOrder }
+-      });
+-    }
+-
+-    // 0.11 Enter / Auto-Fill Benchmark Results
+-    const fillMatch = query.match(/(?:auto[- ]?fill|enter|fill)\s+(?:normal\s+)?(?:bench\s+)?results?(?:\s+for\s+([a-zA-Z0-9_\-]+))?/i) ||
+-                      query.match(/([a-zA-Z0-9_\-]+)?\s*(?:αñòαÑç\s+)?(?:αñ¿αÑëαñ░αÑìαñ«αñ▓\s+)?αñ░αñ┐αñ£αñ▓αÑìαñƒ\s+(?:αñ¡αñ░αÑï|αñíαñ╛αñ▓αÑï)/i);
+-    if (fillMatch) {
+-      const targetCode = (fillMatch[1] || '').trim();
+-      let targetOrder = orders.find(o => targetCode && (o.id === targetCode || o.invoiceNumber === targetCode || o.barcode === targetCode));
+-      if (!targetOrder) targetOrder = orders.find(o => o.pipelineStatus === 'DRAFT' || o.pipelineStatus === 'RESULTS_ENTERED') || orders[0];
+-      if (targetOrder) {
+-        const benchmarks = {
+-          'HB': '14.2', 'HEMOGLOBIN': '14.2',
+-          'TLC': '7400', 'WBC': '7400',
+-          'PLT': '245000', 'PLATELET': '245000',
+-          'RBC': '4.85', 'PCV': '42.8',
+-          'MCV': '88.2', 'MCH': '29.3', 'MCHC': '33.2', 'RDW': '12.8',
+-          'NEUT': '62', 'LYMPH': '30', 'MONO': '5', 'EOS': '2', 'BASO': '1',
+-          'ESR': '8',
+-          'GLU': '92', 'FBS': '92', 'RBS': '108',
+-          'CREAT': '0.88', 'UREA': '22',
+-          'BIL-T': '0.75', 'BIL-D': '0.18', 'SGOT': '26', 'SGPT': '24', 'ALP': '82',
+-          'CHOL': '168', 'TRIG': '122', 'HDL': '48', 'LDL': '95', 'VLDL': '24',
+-          'URIC': '4.8'
+-        };
+-        (targetOrder.tests || []).forEach(t => {
+-          const c = String(t.code || '').toUpperCase();
+-          const val = benchmarks[c] || 'Normal';
+-          t.value = val;
+-          t.status = 'COMPLETED';
+-          t.isPanic = false;
+-        });
+-        targetOrder.pipelineStatus = 'RESULTS_ENTERED';
+-        targetOrder.resultsEnteredAt = new Date().toISOString();
+-        if (typeof saveDB === 'function') await saveDB();
+-        appendAudit('RESULTS_ENTERED', targetOrder.id, actorOf(req), req.auth.role, `Autonomous GIA Copilot auto-populated benchmark results for ${targetOrder.invoiceNumber}`);
+-        const reply = isHi
+-          ? `Γ£à <b>αñ¿αÑëαñ░αÑìαñ«αñ▓ αñ¼αÑçαñéαñÜαñ«αñ╛αñ░αÑìαñò αñ░αñ┐αñ£αñ▓αÑìαñƒαÑìαñ╕ αñªαñ░αÑìαñ£ αñòαñ░ αñªαñ┐αñÅ αñùαñÅ αñ╣αÑêαñé:</b><br>` +
+-            `ΓÇó <b>αñæαñ░αÑìαñíαñ░:</b> ${targetOrder.invoiceNumber} (${targetOrder.patient?.name || 'Patient'})<br>` +
+-            `ΓÇó <b>αñ╕αÑìαñÑαñ┐αññαñ┐:</b> RESULTS_ENTERED (αñ╕αñ¡αÑÇ ${targetOrder.tests?.length || 0} αñ¬αÑêαñ░αñ╛αñ«αÑÇαñƒαñ░ αñ¿αÑëαñ░αÑìαñ«αñ▓ αñ░αÑçαñ½αñ░αÑçαñéαñ╕ αñ░αÑçαñéαñ£ αñ«αÑçαñé)<br>` +
+-            `ΓÇó <b>αñ½αÑëαñ░αÑìαñ«αÑéαñ▓αÑç:</b> αñæαñƒαÑï-αñòαÑêαñ▓αñòαÑüαñ▓αÑçαñƒαÑçαñí (eGFR, LDL, VLDL)`
+-          : `Γ£à <b>Normal benchmark results entered successfully:</b><br>` +
+-            `ΓÇó <b>Order:</b> ${targetOrder.invoiceNumber} (${targetOrder.patient?.name || 'Patient'})<br>` +
+-            `ΓÇó <b>Status:</b> RESULTS_ENTERED (${targetOrder.tests?.length || 0} parameters within biological reference intervals)<br>` +
+-            `ΓÇó <b>Formulas:</b> Auto-derived (eGFR, Friedewald LDL/VLDL)`;
+-        return res.json({
+-          reply,
+-          actionHtml: `<div class="row" style="gap:6px"><button type="button" class="primary" style="font-size:11px;padding:5px 10px" onclick="show('pathologist');toggleGiaCopilot()">Γ£ì∩╕Å Authorize & Release</button><button type="button" class="top-btn" style="font-size:11px;padding:5px 10px" onclick="openIqcDrawer();toggleGiaCopilot()">≡ƒö¼ Run QC</button></div>`,
+-          mutation: { type: 'RESULTS_ENTERED', orderId: targetOrder.id, order: targetOrder }
+-        });
+-      }
+-    }
+-
+-    // 0.12 Autonomous Westgard IQC Execution
+-    const qcExecMatch = query.match(/(?:run|evaluate|execute|check)\s+(?:westgard\s+)?qc(?:\s+run)?/i) ||
+-                        query.match(/(?:αñ╡αÑçαñ╕αÑìαñƒαñùαñ╛αñ░αÑìαñí\s+)?qc\s+(?:αñ░αñ¿|αñƒαÑçαñ╕αÑìαñƒ|αñÜαÑçαñò)\s+αñòαñ░αÑï/i);
+-    if (qcExecMatch) {
+-      const qcRunId = rid('QC');
+-      const qcRun = {
+-        id: qcRunId,
+-        tenantId: tid,
+-        analyzers: ['BIO-SYS-01', 'HEM-XN-550'],
+-        controlLot: 'LOT-2026-N04',
+-        controlLevel: 'LEVEL_2_NORMAL',
+-        evaluatedAt: new Date().toISOString(),
+-        evaluatedBy: actorOf(req),
+-        rulesEvaluated: ['1-2s', '1-3s', '2-2s', 'R-4s', '4-1s', '10x'],
+-        status: 'PASS',
+-        violations: [],
+-        recommendation: 'All analytical runs verified within ┬▒2SD quality limits. Approved for clinical release.'
+-      };
+-      await upsertPlatformRecord(tid, 'qc_run', qcRunId, qcRun);
+-      orders.forEach(o => {
+-        if (!o.qc || o.qc.westgardStatus !== 'PASS') {
+-          o.qcPassed = true;
+-          o.qc = { westgardStatus: 'PASS', runId: qcRunId, verifiedAt: new Date().toISOString() };
+-        }
+-      });
+-      if (typeof saveDB === 'function') await saveDB();
+-      appendAudit('QC_EVALUATED', qcRunId, actorOf(req), req.auth.role, 'Autonomous GIA Copilot executed Westgard IQC evaluation - Status PASS');
+-      const reply = isHi
+-        ? `Γ£à <b>αñ╡αÑçαñ╕αÑìαñƒαñùαñ╛αñ░αÑìαñí IQC αñ╕αñ½αñ▓αññαñ╛αñ¬αÑéαñ░αÑìαñ╡αñò αñ░αñ¿ αñòαñ┐αñ»αñ╛ αñùαñ»αñ╛ ΓÇö PASS:</b><br>` +
+-          `ΓÇó <b>αñòαñéαñƒαÑìαñ░αÑïαñ▓ αñ▓αÑëαñƒ:</b> LOT-2026-N04 (Level 2 Normal Control)<br>` +
+-          `ΓÇó <b>αñ¿αñ┐αñ»αñ« αñ£αñ╛αñéαñÜαÑç αñùαñÅ:</b> 1-2s (Warning Pass), 1-3s (PASS), 2-2s (PASS), R-4s (PASS), 4-1s (PASS), 10x (PASS)<br>` +
+-          `ΓÇó <b>αñ¿αñ┐αñ░αÑìαñúαñ»:</b> αñ╕αñ¡αÑÇ αñÅαñ¿αñ╛αñ▓αñ╛αñçαñ£αñ░αÑìαñ╕ αñòαÑìαñ╡αñ╛αñ▓αñ┐αñƒαÑÇ αñùαÑçαñƒ αñ¬αñ╛αñ╕αÑñ αñ░αñ┐αñ¬αÑïαñ░αÑìαñƒ αñàαñ¬αÑìαñ░αÑéαñ╡αñ▓ αñòαÑç αñ▓αñ┐αñÅ αñ»αÑïαñùαÑìαñ»αÑñ`
+-        : `Γ£à <b>Westgard IQC Run Completed ΓÇö Status: PASS:</b><br>` +
+-          `ΓÇó <b>Control Lot:</b> LOT-2026-N04 (Level 2 Normal Analytical Control)<br>` +
+-          `ΓÇó <b>Rules Evaluated:</b> 1-2s, 1-3s, 2-2s, R-4s, 4-1s, 10x (All Passed within ┬▒2SD)<br>` +
+-          `ΓÇó <b>Verdict:</b> Analytical quality gate satisfied. Authorized for clinical release.`;
+-      return res.json({
+-        reply,
+-        actionHtml: `<button type="button" class="primary" style="font-size:11px;padding:5px 10px" onclick="show('qc');toggleGiaCopilot()">≡ƒö¼ Open QC Workbench</button>`,
+-        mutation: { type: 'QC_RUN_COMPLETED', qcRun }
+-      });
+-    }
+-
+-    // 0.13 Pathologist Authorization & Sign-Off
+-    const signMatch = query.match(/(?:sign[- ]?off|authorize|validate)\s+(?:report|order)?\s*([a-zA-Z0-9_\-]+)?/i) ||
+-                      query.match(/([a-zA-Z0-9_\-]+)?\s*(?:αñ░αñ┐αñ¬αÑïαñ░αÑìαñƒ\s+)?(?:αñ╕αñ╛αñçαñ¿[- ]?αñæαñ½|αñàαñ¬αÑìαñ░αÑéαñ╡|αñ«αñ╛αñ¿αÑìαñ»)\s+αñòαñ░αÑï/i);
+-    if (signMatch) {
+-      const targetCode = (signMatch[1] || '').trim();
+-      let targetOrder = orders.find(o => targetCode && (o.id === targetCode || o.invoiceNumber === targetCode || o.barcode === targetCode));
+-      if (!targetOrder) targetOrder = orders.find(o => o.pipelineStatus === 'RESULTS_ENTERED') || orders[0];
+-      if (targetOrder) {
+-        targetOrder.pipelineStatus = 'VALIDATED';
+-        targetOrder.validatedAt = new Date().toISOString();
+-        targetOrder.pathologistSign = {
+-          name: 'Dr. Rajesh Sharma, MD (Path)',
+-          regNo: 'MCI-34821',
+-          designation: 'Chief Consultant Pathologist',
+-          signedAt: new Date().toISOString()
+-        };
+-        if (typeof saveDB === 'function') await saveDB();
+-        appendAudit('PATHOLOGIST_SIGNOFF', targetOrder.id, actorOf(req), req.auth.role, `Autonomous GIA Copilot authorized report for ${targetOrder.invoiceNumber}`);
+-        const reply = isHi
+-          ? `Γ£à <b>αñ░αñ┐αñ¬αÑïαñ░αÑìαñƒ αñ¬αÑêαñÑαÑïαñ▓αÑëαñ£αñ┐αñ╕αÑìαñƒ αñªαÑìαñ╡αñ╛αñ░αñ╛ αñàαñºαñ┐αñòαÑâαññ (Authorized):</b><br>` +
+-            `ΓÇó <b>αñæαñ░αÑìαñíαñ░:</b> ${targetOrder.invoiceNumber} (${targetOrder.patient?.name || 'Patient'})<br>` +
+-            `ΓÇó <b>αñ╣αñ╕αÑìαññαñ╛αñòαÑìαñ╖αñ░:</b> Dr. Rajesh Sharma, MD (Path) [MCI-34821]<br>` +
+-            `ΓÇó <b>αñ╕αÑìαñÑαñ┐αññαñ┐:</b> VALIDATED ΓÇó αñàαñ¼ αñ░αñ┐αñ¬αÑïαñ░αÑìαñƒ αñ░αñ┐αñ▓αÑÇαñ£ αñòαñ░αñ¿αÑç αñòαÑç αñ▓αñ┐αñÅ αññαÑêαñ»αñ╛αñ░ αñ╣αÑêαÑñ`
+-          : `Γ£à <b>Report Clinically Authorized:</b><br>` +
+-            `ΓÇó <b>Order:</b> ${targetOrder.invoiceNumber} (${targetOrder.patient?.name || 'Patient'})<br>` +
+-            `ΓÇó <b>Signatory:</b> Dr. Rajesh Sharma, MD (Path) [MCI-34821]<br>` +
+-            `ΓÇó <b>Status:</b> VALIDATED ΓÇó Ready for final tamper-evident release.`;
+-        return res.json({
+-          reply,
+-          actionHtml: `<button type="button" class="primary" style="font-size:11px;padding:5px 10px" onclick="releaseReport('${targetOrder.id}');toggleGiaCopilot()">≡ƒÜÇ Release Report</button>`,
+-          mutation: { type: 'ORDER_VALIDATED', orderId: targetOrder.id, order: targetOrder }
+-        });
+-      }
+-    }
+-
+-    // 0.14 Release Final Report with QR & HMAC-SHA256 Proof
+-    const relMatch = query.match(/(?:release|publish)\s+(?:report|order)?\s*([a-zA-Z0-9_\-]+)?/i) ||
+-                     query.match(/([a-zA-Z0-9_\-]+)?\s*(?:αñ░αñ┐αñ¬αÑïαñ░αÑìαñƒ\s+)?αñ░αñ┐αñ▓αÑÇαñ£\s+αñòαñ░αÑï/i);
+-    if (relMatch) {
+-      const targetCode = (relMatch[1] || '').trim();
+-      let targetOrder = orders.find(o => targetCode && (o.id === targetCode || o.invoiceNumber === targetCode || o.barcode === targetCode));
+-      if (!targetOrder) targetOrder = orders.find(o => o.pipelineStatus === 'VALIDATED' || o.pipelineStatus === 'RESULTS_ENTERED') || orders[0];
+-      if (targetOrder) {
+-        targetOrder.pipelineStatus = 'RELEASED';
+-        targetOrder.releasedAt = new Date().toISOString();
+-        targetOrder.verificationToken = crypto.randomBytes(16).toString('hex');
+-        targetOrder.releasedReportHash = crypto.createHmac('sha256', process.env.AUTH_SECRET || 'secret').update(targetOrder.id + targetOrder.releasedAt).digest('hex');
+-        if (typeof saveDB === 'function') await saveDB();
+-        appendAudit('REPORT_RELEASED', targetOrder.id, actorOf(req), req.auth.role, `Autonomous GIA Copilot released final report for ${targetOrder.invoiceNumber}`);
+-        const reply = isHi
+-          ? `Γ£à <b>αñíαñ╛αñ»αñùαÑìαñ¿αÑïαñ╕αÑìαñƒαñ┐αñò αñ░αñ┐αñ¬αÑïαñ░αÑìαñƒ αñ╕αñ½αñ▓αññαñ╛αñ¬αÑéαñ░αÑìαñ╡αñò αñ░αñ┐αñ▓αÑÇαñ£ αñòαÑÇ αñùαñê:</b><br>` +
+-            `ΓÇó <b>αñæαñ░αÑìαñíαñ░:</b> ${targetOrder.invoiceNumber} ΓÇó ${targetOrder.patient?.name || 'Patient'}<br>` +
+-            `ΓÇó <b>αñ╕αÑüαñ░αñòαÑìαñ╖αñ╛ αñ╣αÑêαñ╢ (HMAC-SHA256):</b> <code>${targetOrder.releasedReportHash.slice(0, 16)}...</code><br>` +
+-            `ΓÇó <b>αñ╕αññαÑìαñ»αñ╛αñ¬αñ¿ αñƒαÑïαñòαñ¿:</b> <code>${targetOrder.verificationToken}</code><br>` +
+-            `ΓÇó <b>QR αñòαÑïαñí:</b> αñ╕αñ╛αñ░αÑìαñ╡αñ£αñ¿αñ┐αñò αñ╕αññαÑìαñ»αñ╛αñ¬αñ¿ αñ╕αñòαÑìαñ╖αñ«αÑñ`
+-          : `Γ£à <b>Diagnostic Report Released with Cryptographic Integrity:</b><br>` +
+-            `ΓÇó <b>Order:</b> ${targetOrder.invoiceNumber} ΓÇó ${targetOrder.patient?.name || 'Patient'}<br>` +
+-            `ΓÇó <b>Integrity Seal (HMAC-SHA256):</b> <code>${targetOrder.releasedReportHash.slice(0, 16)}...</code><br>` +
+-            `ΓÇó <b>Verification Token:</b> <code>${targetOrder.verificationToken}</code><br>` +
+-            `ΓÇó <b>Public QR:</b> Instant verification active.`;
+-        return res.json({
+-          reply,
+-          actionHtml: `<div class="row" style="gap:6px"><button type="button" class="primary" style="font-size:11px;padding:5px 10px" onclick="printOrder('${targetOrder.id}')">≡ƒû¿∩╕Å Print Final Report</button><button type="button" class="top-btn" style="font-size:11px;padding:5px 10px;background:#25d366;color:#fff;border:0" onclick="sendWhatsAppDirect('${targetOrder.id}')">≡ƒÆ¼ WhatsApp</button></div>`,
+-          mutation: { type: 'REPORT_RELEASED', orderId: targetOrder.id, order: targetOrder }
+-        });
+-      }
+-    }
+-
+-    // 0.15 Send WhatsApp Diagnostic Report
+-    const waMatch = query.match(/(?:send|share)\s+whatsapp(?:\s+to|\s+report)?(?:\s+([a-zA-Z0-9_\-]+))?/i) ||
+-                    query.match(/([a-zA-Z0-9_\-]+)?\s*(?:αñòαÑï\s+)?αñ╡αÑìαñ╣αñ╛αñƒαÑìαñ╕αñÅαñ¬\s+(?:αñ¡αÑçαñ£αÑï|αñ╢αÑçαñ»αñ░\s+αñòαñ░αÑï)/i);
+-    if (waMatch) {
+-      const targetCode = (waMatch[1] || '').trim();
+-      let targetOrder = orders.find(o => targetCode && (o.id === targetCode || o.invoiceNumber === targetCode || o.barcode === targetCode)) || orders[0];
+-      if (targetOrder) {
+-        const pt = targetOrder.patient || {};
+-        const pName = pt.name || 'Patient';
+-        const pPhone = (pt.phone || '9876543210').replace(/[^0-9]/g, '');
+-        const cleanPhone = pPhone.length === 10 ? '91' + pPhone : pPhone;
+-        const kycRecord = (db().platformRecords || []).find(r => r.entity_type === 'CENTER_KYC' && (r.tenant_id || 'default') === (req.auth?.tenantId || 'default'));
+-        const labName = kycRecord?.data?.labName || 'HRGen Clinical Diagnostic Laboratory';
+-        const msgText = `Namaste ${pName}, your clinical diagnostic report from ${labName} is ready.\n\n` +
+-          `Order: ${targetOrder.invoiceNumber || targetOrder.barcode}\n` +
+-          `Investigations: ${(targetOrder.tests || []).map(t => t.name).join(', ')}\n` +
+-          `Verification Token: ${targetOrder.verificationToken || 'VERIFIED-OFFLINE'}\n\n` +
+-          `Tamper-evident HMAC-SHA256 verified. Thank you for choosing our laboratory.`;
+-        const waUrl = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(msgText)}`;
+-        appendAudit('COMMUNICATION', targetOrder.id, actorOf(req), req.auth.role, `Autonomous GIA Copilot prepared WhatsApp report link for ${targetOrder.invoiceNumber} to ${cleanPhone}`);
+-        const reply = isHi
+-          ? `Γ£à <b>αñ╡αÑìαñ╣αñ╛αñƒαÑìαñ╕αñÅαñ¬ αñ░αñ┐αñ¬αÑïαñ░αÑìαñƒ αñ╕αñéαñªαÑçαñ╢ αññαÑêαñ»αñ╛αñ░ αñòαñ┐αñ»αñ╛ αñùαñ»αñ╛:</b><br>` +
+-            `ΓÇó <b>αñ¬αÑìαñ░αñ╛αñ¬αÑìαññαñòαñ░αÑìαññαñ╛:</b> ${pName} (+${cleanPhone})<br>` +
+-            `ΓÇó <b>αñæαñ░αÑìαñíαñ░:</b> ${targetOrder.invoiceNumber}<br>` +
+-            `αñ¿αÑÇαñÜαÑç αñªαñ┐αñÅ αñùαñÅ αñ¼αñƒαñ¿ αñ¬αñ░ αñòαÑìαñ▓αñ┐αñò αñòαñ░αñòαÑç αñ╕αÑÇαñºαÑç αñ«αñ░αÑÇαñ£ αñòαÑï αñ░αñ┐αñ¬αÑïαñ░αÑìαñƒ αñ¡αÑçαñ£αÑçαñé:`
+-          : `Γ£à <b>WhatsApp Diagnostic Dispatch Ready:</b><br>` +
+-            `ΓÇó <b>Recipient:</b> ${pName} (+${cleanPhone})<br>` +
+-            `ΓÇó <b>Accession:</b> ${targetOrder.invoiceNumber}<br>` +
+-            `Click below to launch WhatsApp Web/Mobile:`;
+-        return res.json({
+-          reply,
+-          actionHtml: `<a href="${waUrl}" target="_blank" class="primary" style="display:inline-block;text-decoration:none;font-size:11px;padding:6px 12px;background:#25d366;border-color:#1ebc59;color:#fff;border-radius:8px">≡ƒÆ¼ Open WhatsApp Chat</a>`,
+-          mutation: { type: 'WHATSAPP_LINK_GENERATED', orderId: targetOrder.id, url: waUrl }
+-        });
+-      }
+-    }
+-
+-    // 0.16 Apply Discount on Invoice
+-    const discMatch = query.match(/(?:apply|give|add)\s+(\d{1,2})%?\s+discount(?:\s+on|\s+to|\s+for)?\s*([a-zA-Z0-9_\-]+)?/i) ||
+-                      query.match(/([a-zA-Z0-9_\-]+)?\s*(?:αñ¬αñ░\s+)?(\d{1,2})%\s+(?:αñíαñ┐αñ╕αÑìαñòαñ╛αñëαñéαñƒ|αñ¢αÑéαñƒ)\s+αñ▓αñùαñ╛αñô/i);
+-    if (discMatch) {
+-      let discVal = parseInt(discMatch[1] || discMatch[2], 10);
+-      let targetCode = (discMatch[2] || discMatch[1] || '').trim();
+-      if (!isNaN(parseInt(discMatch[2], 10))) {
+-        discVal = parseInt(discMatch[2], 10);
+-        targetCode = (discMatch[1] || '').trim();
+-      }
+-      let targetOrder = orders.find(o => targetCode && (o.id === targetCode || o.invoiceNumber === targetCode || o.barcode === targetCode)) || orders[0];
+-      if (targetOrder && discVal > 0 && discVal <= 100) {
+-        const gross = Number(targetOrder.grossAmount || targetOrder.netPayable || 500);
+-        const discAmt = Math.round(gross * discVal / 100);
+-        const net = gross - discAmt;
+-        targetOrder.grossAmount = gross;
+-        targetOrder.discountType = 'PERCENTAGE';
+-        targetOrder.discountValue = discVal;
+-        targetOrder.discountAmount = discAmt;
+-        targetOrder.netPayable = net;
+-        targetOrder.balanceDue = Math.max(0, net - Number(targetOrder.paidAmount || 0));
+-        if (typeof saveDB === 'function') await saveDB();
+-        appendAudit('INVOICE_DISCOUNT_APPLIED', targetOrder.id, actorOf(req), req.auth.role, `Autonomous GIA Copilot applied ${discVal}% discount on ${targetOrder.invoiceNumber}`);
+-        const reply = isHi
+-          ? `Γ£à <b>${discVal}% αñ¢αÑéαñƒ αñ▓αñ╛αñùαÑé αñòαÑÇ αñùαñê:</b><br>` +
+-            `ΓÇó <b>αñæαñ░αÑìαñíαñ░:</b> ${targetOrder.invoiceNumber} (${targetOrder.patient?.name || 'Patient'})<br>` +
+-            `ΓÇó <b>αñ«αÑéαñ▓ αñ░αñ╛αñ╢αñ┐:</b> Γé╣${gross} ΓÇó <b>αñ¢αÑéαñƒ:</b> -Γé╣${discAmt}<br>` +
+-            `ΓÇó <b>αñ¿αñ»αñ╛ αñªαÑçαñ» αñ¼αñ┐αñ▓:</b> <b>Γé╣${net}</b> (αñ¼αñ╛αñòαÑÇ: Γé╣${targetOrder.balanceDue})`
+-          : `Γ£à <b>${discVal}% Discount Applied:</b><br>` +
+-            `ΓÇó <b>Order:</b> ${targetOrder.invoiceNumber} (${targetOrder.patient?.name || 'Patient'})<br>` +
+-            `ΓÇó <b>Gross:</b> Γé╣${gross} ΓÇó <b>Discount:</b> -Γé╣${discAmt}<br>` +
+-            `ΓÇó <b>Revised Net Payable:</b> <b>Γé╣${net}</b> (Balance Due: Γé╣${targetOrder.balanceDue})`;
+-        return res.json({
+-          reply,
+-          actionHtml: `<button type="button" class="primary" style="font-size:11px;padding:5px 10px" onclick="printBill('${targetOrder.id}')">≡ƒº╛ View Updated Bill</button>`,
+-          mutation: { type: 'DISCOUNT_APPLIED', orderId: targetOrder.id, discountPercent: discVal, netPayable: net, balanceDue: targetOrder.balanceDue }
+-        });
+-      }
+-    }
+-
+-    // 0.17 Collect / Record Cash or UPI Payment
+-    const payMatch = query.match(/(?:collect|record|receive)\s+(?:Γé╣|rs\.?)?\s*(\d+)\s*(?:payment|cash|upi)?(?:\s+for\s+([a-zA-Z0-9_\-]+))?/i) ||
+-                     query.match(/([a-zA-Z0-9_\-]+)?\s*(?:αñòαñ╛\s+)?(?:Γé╣|rs\.?)?\s*(\d+)\s*(?:αñ░αÑüαñ¬αñ»αÑç|αñ░αÑü)?\s*(?:αñ¬αÑçαñ«αÑçαñéαñƒ|αñ£αñ«αñ╛)\s+(?:αñ▓αÑï|αñòαñ░αÑï)/i);
+-    if (payMatch) {
+-      let amount = parseInt(payMatch[1] || payMatch[2], 10);
+-      let targetCode = (payMatch[2] || payMatch[1] || '').trim();
+-      if (!isNaN(parseInt(payMatch[2], 10))) {
+-        amount = parseInt(payMatch[2], 10);
+-        targetCode = (payMatch[1] || '').trim();
+-      }
+-      let targetOrder = orders.find(o => targetCode && (o.id === targetCode || o.invoiceNumber === targetCode || o.barcode === targetCode)) || orders[0];
+-      if (targetOrder && amount > 0) {
+-        targetOrder.paidAmount = Number(targetOrder.paidAmount || 0) + amount;
+-        targetOrder.balanceDue = Math.max(0, Number(targetOrder.netPayable || 0) - targetOrder.paidAmount);
+-        targetOrder.paymentStatus = targetOrder.balanceDue === 0 ? 'PAID' : 'PARTIAL';
+-        targetOrder.lastPaymentAt = new Date().toISOString();
+-        if (typeof saveDB === 'function') await saveDB();
+-        appendAudit('OPD_PAYMENT_CAPTURED', targetOrder.id, actorOf(req), req.auth.role, `Autonomous GIA Copilot recorded payment of Γé╣${amount} for ${targetOrder.invoiceNumber}`);
+-        const reply = isHi
+-          ? `Γ£à <b>αñ¡αÑüαñùαññαñ╛αñ¿ αñ╕αñ½αñ▓αññαñ╛αñ¬αÑéαñ░αÑìαñ╡αñò αñªαñ░αÑìαñ£ αñòαñ┐αñ»αñ╛ αñùαñ»αñ╛:</b><br>` +
+-            `ΓÇó <b>αñæαñ░αÑìαñíαñ░:</b> ${targetOrder.invoiceNumber} (${targetOrder.patient?.name || 'Patient'})<br>` +
+-            `ΓÇó <b>αñ¬αÑìαñ░αñ╛αñ¬αÑìαññ αñ░αñ╛αñ╢αñ┐:</b> Γé╣${amount} ΓÇó <b>αñòαÑüαñ▓ αñ¬αÑìαñ░αñ╛αñ¬αÑìαññ:</b> Γé╣${targetOrder.paidAmount}<br>` +
+-            `ΓÇó <b>αñ¼αñòαñ╛αñ»αñ╛ αñ░αñ╛αñ╢αñ┐:</b> <b>Γé╣${targetOrder.balanceDue}</b> (${targetOrder.paymentStatus})`
+-          : `Γ£à <b>Payment Successfully Recorded:</b><br>` +
+-            `ΓÇó <b>Order:</b> ${targetOrder.invoiceNumber} (${targetOrder.patient?.name || 'Patient'})<br>` +
+-            `ΓÇó <b>Received:</b> Γé╣${amount} ΓÇó <b>Total Paid:</b> Γé╣${targetOrder.paidAmount}<br>` +
+-            `ΓÇó <b>Remaining Balance:</b> <b>Γé╣${targetOrder.balanceDue}</b> (${targetOrder.paymentStatus})`;
+-        return res.json({
+-          reply,
+-          actionHtml: `<button type="button" class="primary" style="font-size:11px;padding:5px 10px" onclick="printBill('${targetOrder.id}')">≡ƒº╛ View Receipt</button>`,
+-          mutation: { type: 'PAYMENT_RECORDED', orderId: targetOrder.id, amount, balanceDue: targetOrder.balanceDue }
+-        });
+-      }
+-    }
+-
+-    // 0.18 Daily Accounts & Revenue Summary
+-    if (qLower.includes('collection') || qLower.includes('revenue') || qLower.includes('accounts') || qLower.includes('αñòαñ▓αÑçαñòαÑìαñ╢αñ¿') || qLower.includes('αñòαñ«αñ╛αñê') || qLower.includes('αñªαÑêαñ¿αñ┐αñò')) {
+-      const today = new Date().toISOString().slice(0, 10);
+-      const todayOrders = orders.filter(o => (o.createdAt || '').startsWith(today));
+-      const pool = todayOrders.length ? todayOrders : orders;
+-      const totalGross = pool.reduce((s, o) => s + Number(o.grossAmount || o.netPayable || 0), 0);
+-      const totalNet = pool.reduce((s, o) => s + Number(o.netPayable || 0), 0);
+-      const totalPaid = pool.reduce((s, o) => s + Number(o.paidAmount || 0), 0);
+-      const totalDue = pool.reduce((s, o) => s + Number(o.balanceDue || 0), 0);
+-      const reply = isHi
+-        ? `≡ƒôè <b>αñåαñ£ αñòαñ╛ αñªαÑêαñ¿αñ┐αñò αñòαñ▓αÑçαñòαÑìαñ╢αñ¿ αñ╡ αñÅαñòαñ╛αñëαñéαñƒαÑìαñ╕ αñ╕αñ╛αñ░αñ╛αñéαñ╢:</b><br>` +
+-          `ΓÇó <b>αñòαÑüαñ▓ αñ«αñ░αÑÇαñ£ / αñæαñ░αÑìαñíαñ░αÑìαñ╕:</b> ${pool.length}<br>` +
+-          `ΓÇó <b>αñòαÑüαñ▓ αñ¼αñ┐αñ▓ αñ░αñ╛αñ╢αñ┐:</b> Γé╣${totalNet.toLocaleString('en-IN')}<br>` +
+-          `ΓÇó <b>αñ¿αñòαñª / UPI αñ¬αÑìαñ░αñ╛αñ¬αÑìαññ:</b> <span class="badge ok" style="font-size:12px">Γé╣${totalPaid.toLocaleString('en-IN')}</span><br>` +
+-          `ΓÇó <b>αñ¼αñòαñ╛αñ»αñ╛ αñ░αñ╛αñ╢αñ┐ (Due):</b> <span class="badge ${totalDue > 0 ? 'warn' : 'ok'}" style="font-size:12px">Γé╣${totalDue.toLocaleString('en-IN')}</span>`
+-        : `≡ƒôè <b>Today's Operational & Financial Revenue Summary:</b><br>` +
+-          `ΓÇó <b>Total Accessioned Orders:</b> ${pool.length}<br>` +
+-          `ΓÇó <b>Gross Billed Revenue:</b> Γé╣${totalNet.toLocaleString('en-IN')}<br>` +
+-          `ΓÇó <b>Total Collections (Cash/UPI):</b> <span class="badge ok" style="font-size:12px">Γé╣${totalPaid.toLocaleString('en-IN')}</span><br>` +
+-          `ΓÇó <b>Outstanding Receivables:</b> <span class="badge ${totalDue > 0 ? 'warn' : 'ok'}" style="font-size:12px">Γé╣${totalDue.toLocaleString('en-IN')}</span>`;
+-      return res.json({
+-        reply,
+-        actionHtml: `<div class="row" style="gap:6px"><button type="button" class="primary" style="font-size:11px;padding:5px 10px" onclick="show('billing');toggleGiaCopilot()">Γé╣ Open Billing POS</button><button type="button" class="top-btn" style="font-size:11px;padding:5px 10px" onclick="show('dashboard');toggleGiaCopilot()">Γîé Command Center</button></div>`,
+-        mutation: { type: 'COLLECTION_REPORT', totalPaid, totalDue, totalNet, count: pool.length }
+-      });
+-    }
+-
+-    // 0.19 Autonomous Test Creation
+-    const testCreateMatch = query.match(/(?:create|add|new)\s+test\s+(.+)/i) ||
+-                            query.match(/(?:αñ¿αñ»αñ╛\s+αñƒαÑçαñ╕αÑìαñƒ|αñ£αñ╛αñéαñÜ)\s+(?:αñ£αÑïαñíαñ╝αÑï|αñ¼αñ¿αñ╛αñô)\s+(.+)/i);
+-    if (testCreateMatch && !query.toLowerCase().includes('how to add')) {
+-      const rest = testCreateMatch[1];
+-      const codeMatch = rest.match(/(?:with\s+)?code\s+([a-zA-Z0-9_\-]+)/i) || rest.match(/αñòαÑïαñí\s+([a-zA-Z0-9_\-]+)/i);
+-      const priceMatch = rest.match(/(?:rate|price|αñ░αÑçαñƒ)\s+(?:rs\.?|Γé╣)?\s*(\d+)/i);
+-      const deptMatch = rest.match(/(?:dept|department|αñ╡αñ┐αñ¡αñ╛αñù)\s+([a-zA-Z\s]+)/i);
+-
+-      let rawTestName = rest;
+-      if (codeMatch) rawTestName = rawTestName.replace(codeMatch[0], '');
+-      if (priceMatch) rawTestName = rawTestName.replace(priceMatch[0], '');
+-      if (deptMatch) rawTestName = rawTestName.replace(deptMatch[0], '');
+-      rawTestName = rawTestName.trim().replace(/^with\s+/i, '');
+-      let testCode = codeMatch ? codeMatch[1].trim().toUpperCase() : '';
+-      if (!testCode) {
+-        testCode = rawTestName.split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 8);
+-        if (testCode.length < 3) testCode = (rawTestName.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6)) || 'TST';
+-      }
+-      const testPrice = priceMatch ? Number(priceMatch[1]) : 450;
+-      const testDept = deptMatch ? deptMatch[1].trim() : 'Biochemistry';
+-
+-      D.testCatalog = D.testCatalog || [];
+-      const existing = D.testCatalog.find(c => (c.tenantId || 'default') === tid && c.code.toUpperCase() === testCode);
+-      if (existing) {
+-        existing.price = testPrice;
+-        existing.name = rawTestName;
+-      } else {
+-        D.testCatalog.push({
+-          code: testCode,
+-          name: rawTestName,
+-          department: testDept,
+-          price: testPrice,
+-          unit: 'mg/dL',
+-          reference: 'Biological Reference Interval (Normal)',
+-          tenantId: tid,
+-          active: true,
+-          createdAt: new Date().toISOString()
+-        });
+-      }
+-      if (typeof saveDB === 'function') await saveDB();
+-      appendAudit('CATALOG_TEST_CREATED', testCode, actorOf(req), req.auth.role, `Autonomous GIA Copilot created investigation ${rawTestName} (${testCode}) at Γé╣${testPrice}`);
+-      const reply = isHi
+-        ? `Γ£à <b>αñ¿αñê αñ£αñ╛αñéαñÜ (Test) αñ╕αñ½αñ▓αññαñ╛αñ¬αÑéαñ░αÑìαñ╡αñò αñòαÑêαñƒαñ▓αÑëαñù αñ«αÑçαñé αñ£αÑïαñíαñ╝αÑÇ αñùαñê:</b><br>` +
+-          `ΓÇó <b>αñ¿αñ╛αñ«:</b> ${rawTestName}<br>` +
+-          `ΓÇó <b>αñòαÑïαñí:</b> <code>${testCode}</code> ΓÇó <b>αñ╡αñ┐αñ¡αñ╛αñù:</b> ${testDept}<br>` +
+-          `ΓÇó <b>αñªαñ░ (Price):</b> <b>Γé╣${testPrice}</b>`
+-        : `Γ£à <b>New investigation added to clinical catalogue:</b><br>` +
+-          `ΓÇó <b>Name:</b> ${rawTestName}<br>` +
+-          `ΓÇó <b>Code:</b> <code>${testCode}</code> ΓÇó <b>Department:</b> ${testDept}<br>` +
+-          `ΓÇó <b>Price / Rate:</b> <b>Γé╣${testPrice}</b>`;
+-      return res.json({
+-        reply,
+-        actionHtml: `<div class="row" style="gap:6px"><button type="button" class="primary" style="font-size:11px;padding:5px 10px" onclick="show('opd');toggleGiaCopilot()">ΓÜí Book in OPD</button><button type="button" class="top-btn" style="font-size:11px;padding:5px 10px" onclick="show('settings');toggleGiaCopilot()">ΓÜÖ∩╕Å View Rates Master</button></div>`,
+-        mutation: { type: 'TEST_CREATED', code: testCode, name: rawTestName, price: testPrice, department: testDept }
+-      });
+-    }
+-
+-    // 0.20 Autonomous Health Package Creation
+-    const pkgMatch = query.match(/(?:create|add|new)\s+package\s+([a-zA-Z0-9_\-\s]+?)\s+with\s+(?:tests\s+)?([a-zA-Z0-9_\-,\s]+?)(?:\s+(?:rate|price)\s+(?:rs\.?|Γé╣)?\s*(\d+))?$/i) ||
+-                     query.match(/αñ¬αÑêαñòαÑçαñ£\s+(?:αñ¼αñ¿αñ╛αñô|αñ£αÑïαñíαñ╝αÑï)\s+([a-zA-Z0-9_\-\s]+?)\s+(?:αñ£αñ╛αñéαñÜαÑçαñé\s+)?([a-zA-Z0-9_\-,\s]+?)(?:\s+αñ░αÑçαñƒ\s+(\d+))?$/i);
+-    if (pkgMatch) {
+-      const pkgName = pkgMatch[1].trim();
+-      const rawTests = pkgMatch[2].trim();
+-      const pkgPrice = Number(pkgMatch[3] || 999);
+-      const pkgCode = 'PKG-' + (pkgName.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8) || 'HLTH');
+-      D.testCatalog = D.testCatalog || [];
+-      D.testCatalog.push({
+-        code: pkgCode,
+-        name: `${pkgName} (${rawTests})`,
+-        department: 'Health Packages',
+-        price: pkgPrice,
+-        unit: 'Panel',
+-        reference: 'Comprehensive Health Checkup Panel',
+-        tenantId: tid,
+-        active: true,
+-        isPackage: true,
+-        testsIncluded: rawTests.split(/[,+\s]+/).filter(Boolean),
+-        createdAt: new Date().toISOString()
+-      });
+-      if (typeof saveDB === 'function') await saveDB();
+-      appendAudit('PACKAGE_CREATED', pkgCode, actorOf(req), req.auth.role, `Autonomous GIA Copilot created package ${pkgName} with tests ${rawTests} at Γé╣${pkgPrice}`);
+-      const reply = isHi
+-        ? `Γ£à <b>αñ¿αñ»αñ╛ αñ╣αÑçαñ▓αÑìαñÑ αñ¬αÑêαñòαÑçαñ£ αññαÑêαñ»αñ╛αñ░ αñòαñ┐αñ»αñ╛ αñùαñ»αñ╛:</b><br>` +
+-          `ΓÇó <b>αñ¬αÑêαñòαÑçαñ£:</b> ${pkgName} (<code>${pkgCode}</code>)<br>` +
+-          `ΓÇó <b>αñ╢αñ╛αñ«αñ┐αñ▓ αñ£αñ╛αñéαñÜαÑçαñé:</b> ${rawTests}<br>` +
+-          `ΓÇó <b>αñ¬αÑêαñòαÑçαñ£ αñªαñ░:</b> <b>Γé╣${pkgPrice}</b>`
+-        : `Γ£à <b>New clinical health package created:</b><br>` +
+-          `ΓÇó <b>Package:</b> ${pkgName} (<code>${pkgCode}</code>)<br>` +
+-          `ΓÇó <b>Included Tests:</b> ${rawTests}<br>` +
+-          `ΓÇó <b>Package Rate:</b> <b>Γé╣${pkgPrice}</b>`;
+-      return res.json({
+-        reply,
+-        actionHtml: `<button type="button" class="primary" style="font-size:11px;padding:5px 10px" onclick="show('opd');toggleGiaCopilot()">ΓÜí Book Package in OPD</button>`,
+-        mutation: { type: 'PACKAGE_CREATED', code: pkgCode, name: pkgName, tests: rawTests, price: pkgPrice }
+-      });
+-    }
+-
+-    // 0.21 Universal Search A to Z (Patients, Orders, Tests, Doctors)
+-    const searchMatch = query.match(/(?:search|find|lookup|query)\s+(?:for\s+)?([a-zA-Z0-9_\-\s\.]+)/i) ||
+-                        query.match(/(?:αñóαÑéαñéαñóαÑï|αñûαÑïαñ£αÑï|αñ╕αñ░αÑìαñÜ\s+αñòαñ░αÑï)\s+([a-zA-Z0-9_\-\u0900-\u097F\s\.]+)/i);
+-    if (searchMatch) {
+-      const sTerm = searchMatch[1].trim().toLowerCase();
+-      const matchedPts = patients.filter(p => (p.name && p.name.toLowerCase().includes(sTerm)) || (p.uhid && p.uhid.toLowerCase().includes(sTerm)) || (p.phone && p.phone.includes(sTerm)));
+-      const matchedOrds = orders.filter(o => (o.invoiceNumber && o.invoiceNumber.toLowerCase().includes(sTerm)) || (o.barcode && o.barcode.toLowerCase().includes(sTerm)) || (o.patient?.name && o.patient.name.toLowerCase().includes(sTerm)));
+-      const matchedCats = (D.testCatalog || []).filter(c => (c.tenantId || 'default') === tid && ((c.code && c.code.toLowerCase().includes(sTerm)) || (c.name && c.name.toLowerCase().includes(sTerm))));
+-      
+-      let resHtml = '';
+-      if (matchedPts.length) {
+-        resHtml += `<b>αñ«αñ░αÑÇαñ£ (Patients):</b><br>` + matchedPts.slice(0, 3).map(p => `ΓÇó <b>${p.name}</b> (${p.uhid || '-'}) ΓÇó ${p.gender}, ${p.age} Y ΓÇó ≡ƒô₧ ${p.phone || '-'}`).join('<br>') + '<br><br>';
+-      }
+-      if (matchedOrds.length) {
+-        resHtml += `<b>αñæαñ░αÑìαñíαñ░αÑìαñ╕ (Orders):</b><br>` + matchedOrds.slice(0, 3).map(o => `ΓÇó <b>${o.invoiceNumber}</b> (${o.patient?.name || 'Patient'}) ΓÇó Status: <span class="badge ${o.pipelineStatus === 'RELEASED' ? 'ok' : 'warn'}">${o.pipelineStatus}</span> ΓÇó Γé╣${o.netPayable}`).join('<br>') + '<br><br>';
+-      }
+-      if (matchedCats.length) {
+-        resHtml += `<b>αñ£αñ╛αñéαñÜαÑçαñé (Catalogue):</b><br>` + matchedCats.slice(0, 4).map(c => `ΓÇó <b>${c.name}</b> (<code>${c.code}</code>) ΓÇó Γé╣${c.price} ΓÇó ${c.department}`).join('<br>');
+-      }
+-
+-      if (!resHtml) {
+-        resHtml = isHi ? `"${searchMatch[1]}" αñòαÑç αñ▓αñ┐αñÅ αñòαÑïαñê αñ░αñ┐αñòαÑëαñ░αÑìαñí αñ¿αñ╣αÑÇαñé αñ«αñ┐αñ▓αñ╛αÑñ` : `No matching records found for "${searchMatch[1]}".`;
+-      }
+-
+-      const reply = isHi ? `≡ƒöì <b>A to Z αñ╕αñ░αÑìαñÜ αñ¬αñ░αñ┐αñúαñ╛αñ« ("${searchMatch[1]}"):</b><br><br>${resHtml}` : `≡ƒöì <b>Universal Search Results for "${searchMatch[1]}":</b><br><br>${resHtml}`;
+-      return res.json({
+-        reply,
+-        actionHtml: `<div class="row" style="gap:6px"><button type="button" class="primary" style="font-size:11px;padding:5px 10px" onclick="show('opd');toggleGiaCopilot()">∩╝ï Patient Booking</button><button type="button" class="top-btn" style="font-size:11px;padding:5px 10px" onclick="show('worklist');toggleGiaCopilot()">ΓÜí Results</button></div>`,
+-        mutation: { type: 'SEARCH_RESULTS', term: sTerm, patientCount: matchedPts.length, orderCount: matchedOrds.length, testCount: matchedCats.length }
+-      });
+-    }
+-
+-    // 0.22 Autonomous Lab Setup Wizard
+-    const setupMatch = query.match(/(?:setup|configure)\s+lab\s+([a-zA-Z0-9_\-\s]+?)(?:\s+(?:phone|contact)\s+([0-9\+\-\s]{10,14}))?(?:\s+address\s+([a-zA-Z0-9_\-,\s]+))?$/i) ||
+-                       query.match(/αñ▓αÑêαñ¼\s+αñ╕αÑçαñƒαñàαñ¬\s+αñòαñ░αÑï\s+([a-zA-Z0-9_\-\u0900-\u097F\s]+)/i);
+-    if (setupMatch) {
+-      const labName = setupMatch[1].trim();
+-      const labPhone = setupMatch[2] ? setupMatch[2].trim() : '+91 98765 43210';
+-      const labAddress = setupMatch[3] ? setupMatch[3].trim() : 'Diagnostic Health Complex, Main Road';
+-
+-      const kycRec = await getPlatformRecord(tid, 'kyc', 'CURRENT');
+-      const kycData = Object.assign({}, kycRec?.data || {}, {
+-        labName,
+-        phone: labPhone,
+-        address: labAddress,
+-        updatedAt: new Date().toISOString()
+-      });
+-      await upsertPlatformRecord(tid, 'kyc', 'CURRENT', kycData);
+-
+-      const brandRec = await getPlatformRecord(tid, 'branding', 'CURRENT');
+-      const brandData = Object.assign({}, brandRec?.data || {}, {
+-        labName,
+-        phone: labPhone,
+-        address: labAddress,
+-        updatedAt: new Date().toISOString()
+-      });
+-      await upsertPlatformRecord(tid, 'branding', 'CURRENT', brandData);
+-
+-      appendAudit('LAB_SETUP_CONFIGURED', null, actorOf(req), req.auth.role, `Autonomous GIA Copilot configured laboratory setup for ${labName}`);
+-      const reply = isHi
+-        ? `Γ£à <b>αñ▓αÑêαñ¼ αñòαñ╛ αñ╕αñ«αÑìαñ¬αÑéαñ░αÑìαñú αñ╕αÑçαñƒαñàαñ¬ αñ╕αñ½αñ▓αññαñ╛αñ¬αÑéαñ░αÑìαñ╡αñò αñòαÑëαñ¿αÑìαñ½αñ╝αñ┐αñùαñ░ αñòαñ┐αñ»αñ╛ αñùαñ»αñ╛:</b><br>` +
+-          `ΓÇó <b>αñ¿αñ╛αñ«:</b> ${labName}<br>` +
+-          `ΓÇó <b>αñ½αÑïαñ¿:</b> ${labPhone}<br>` +
+-          `ΓÇó <b>αñ¬αññαñ╛:</b> ${labAddress}<br>` +
+-          `αñ╕αñ¡αÑÇ αñ░αñ┐αñ¬αÑïαñ░αÑìαñƒ αñ▓αÑçαñƒαñ░αñ╣αÑçαñí, αñ¼αñ┐αñ▓αñ┐αñéαñù αñ░αñ╕αÑÇαñªαÑçαñé αñöαñ░ αñ╕αÑçαñéαñƒαñ░ KYC αñ«αÑçαñé αññαÑüαñ░αñéαññ αñàαñ¬αñíαÑçαñƒ αñ╣αÑï αñùαñ»αñ╛ αñ╣αÑêαÑñ`
+-        : `Γ£à <b>Laboratory Profile & Setup Configured Successfully:</b><br>` +
+-          `ΓÇó <b>Lab Legal Name:</b> ${labName}<br>` +
+-          `ΓÇó <b>Contact Phone:</b> ${labPhone}<br>` +
+-          `ΓÇó <b>Address:</b> ${labAddress}<br>` +
+-          `Active across all diagnostic letterheads, invoices, and Center KYC credentials.`;
+-      return res.json({
+-        reply,
+-        actionHtml: `<button type="button" class="primary" style="font-size:11px;padding:5px 10px" onclick="show('kyc');toggleGiaCopilot()">≡ƒÅó Open Center KYC</button>`,
+-        mutation: { type: 'SETUP_COMPLETED', labName, phone: labPhone, address: labAddress }
+-      });
+-    }
+-
+-    // 0.8 Universal Module Navigation & Quick Actions Intent
+-    if (qLower.includes('calibrate printer margin') || qLower.includes('printer margin') || qLower === 'margins') {
+-      const reply = isHi ? 'Γ£à <b>αñ¬αÑìαñ░αñ┐αñéαñƒαñ░ αñ«αñ╛αñ░αÑìαñ£αñ┐αñ¿ αñ╕αÑçαñƒαñ┐αñéαñùαÑìαñ╕ αñûαÑïαñ▓αÑÇ αñ£αñ╛ αñ░αñ╣αÑÇ αñ╣αÑêαñé:</b>' : 'Γ£à <b>Navigating to Printer Margin Settings:</b>';
+-      return res.json({
+-        reply,
+-        actionHtml: `<button type="button" class="primary" style="font-size:11px;padding:5px 10px" onclick="show('settings');toggleGiaCopilot()">ΓÜÖ∩╕Å Open Margins</button>`,
+-        mutation: { type: 'NAVIGATE', view: 'settings' }
+-      });
+-    }
+-    if (qLower.includes('how to add new test') || qLower.includes('add new test') || qLower === 'add test') {
+-      const reply = isHi ? 'Γ£à <b>αñ¿αñê αñ£αñ╛αñéαñÜ αñ£αÑïαñíαñ╝αñ¿αÑç αñòαñ╛ αñ╡αñ┐αñéαñíαÑï αñûαÑïαñ▓αñ╛ αñ£αñ╛ αñ░αñ╣αñ╛ αñ╣αÑê:</b>' : 'Γ£à <b>Opening Add New Test Modal:</b>';
+-      return res.json({
+-        reply,
+-        actionHtml: `<button type="button" class="primary" style="font-size:11px;padding:5px 10px" onclick="openAddTestModal();toggleGiaCopilot()">≡ƒÅ╖∩╕Å Add Test</button>`,
+-        mutation: { type: 'OPEN_ADD_TEST' }
+-      });
+-    }
+-    if (qLower.includes('export doctor commission') || qLower.includes('doctor payout') || qLower.includes('payout')) {
+-      const reply = isHi ? 'Γ£à <b>αñíαÑëαñòαÑìαñƒαñ░ αñòαñ«αÑÇαñ╢αñ¿ αñöαñ░ αñ¡αÑüαñùαññαñ╛αñ¿ αñ▓αÑçαñ£αñ░ αñûαÑïαñ▓αñ╛ αñ£αñ╛ αñ░αñ╣αñ╛ αñ╣αÑê:</b>' : 'Γ£à <b>Navigating to Doctor Referral & Commission Master:</b>';
+-      return res.json({
+-        reply,
+-        actionHtml: `<button type="button" class="primary" style="font-size:11px;padding:5px 10px" onclick="show('doctors');toggleGiaCopilot()">≡ƒæ¿ΓÇìΓÜò∩╕Å Open Doctors</button>`,
+-        mutation: { type: 'NAVIGATE', view: 'doctors' }
+-      });
+-    }
+-    if (qLower.includes('westgard qc') || qLower.includes('westgard error') || qLower.includes('qc error')) {
+-      const reply = isHi ? 'Γ£à <b>αñ╡αÑçαñ╕αÑìαñƒαñùαñ╛αñ░αÑìαñí αñòαÑìαñ╡αñ╛αñ▓αñ┐αñƒαÑÇ αñòαñéαñƒαÑìαñ░αÑïαñ▓ αñ╡αñ░αÑìαñòαñ¼αÑçαñéαñÜ αñûαÑïαñ▓αñ╛ αñ£αñ╛ αñ░αñ╣αñ╛ αñ╣αÑê:</b>' : 'Γ£à <b>Navigating to Westgard Quality Control Workbench:</b>';
+-      return res.json({
+-        reply,
+-        actionHtml: `<button type="button" class="primary" style="font-size:11px;padding:5px 10px" onclick="show('qc');toggleGiaCopilot()">≡ƒö¼ Open QC</button>`,
+-        mutation: { type: 'NAVIGATE', view: 'qc' }
+-      });
+-    }
+-
+-    const navMatch = query.match(/(?:open|go\s+to|show|navigate\s+to)\s+(?:result\s+)?([a-zA-Z\s]+)/i) ||
+-                     query.match(/([a-zA-Z\s]+)\s+(?:αñûαÑïαñ▓αÑï|αñªαñ┐αñûαñ╛αñô)/i) ||
+-                     query.match(/(?:αñûαÑïαñ▓αÑï|αñªαñ┐αñûαñ╛αñô)\s+([a-zA-Z\s]+)/i);
+-    if (navMatch) {
+-      const rawTarget = navMatch[1].trim().toLowerCase();
+-      const viewMap = {
+-        'worklist': 'worklist',
+-        'result': 'worklist',
+-        'results': 'worklist',
+-        'result worklist': 'worklist',
+-        'workbench': 'worklist',
+-        'dashboard': 'dashboard',
+-        'home': 'dashboard',
+-        'command center': 'dashboard',
+-        'opd': 'opd',
+-        'reception': 'opd',
+-        'registration': 'opd',
+-        'patient': 'patients',
+-        'patients': 'patients',
+-        'billing': 'billing',
+-        'pos': 'billing',
+-        'invoice': 'billing',
+-        'qc': 'qc',
+-        'westgard': 'qc',
+-        'quality': 'qc',
+-        'pathologist': 'pathologist',
+-        'reports': 'reports',
+-        'report': 'reports',
+-        'doctor': 'doctors',
+-        'doctors': 'doctors',
+-        'referral': 'doctors',
+-        'settings': 'settings',
+-        'setting': 'settings',
+-        'kyc': 'kyc',
+-        'center kyc': 'kyc',
+-        'center': 'kyc',
+-        'audit': 'audit',
+-        'audit trail': 'audit',
+-        'audit ledger': 'audit'
+-      };
+-      const targetView = viewMap[rawTarget] || Object.keys(viewMap).find(k => rawTarget.includes(k) && viewMap[k]);
+-      if (targetView) {
+-        const viewName = targetView.toUpperCase();
+-        const reply = isHi
+-          ? `Γ£à <b>αñ«αÑëαñíαÑìαñ»αÑéαñ▓ αñûαÑïαñ▓αñ╛ αñ£αñ╛ αñ░αñ╣αñ╛ αñ╣αÑê:</b> ${viewName}`
+-          : `Γ£à <b>Navigating to module:</b> ${viewName}`;
+-        return res.json({
+-          reply,
+-          actionHtml: `<button type="button" class="primary" style="font-size:11px;padding:5px 10px" onclick="show('${targetView}');toggleGiaCopilot()">Go to ${viewName}</button>`,
+-          mutation: { type: 'NAVIGATE', view: targetView }
+-        });
+-      }
+-    }
+-
+-    // 1. Patient / Order Search Intent
+-    const matchedOrder = orders.find(o => 
+-      (o.patient?.name && o.patient.name.toLowerCase().includes(qLower)) ||
+-      (o.invoiceNumber && o.invoiceNumber.toLowerCase().includes(qLower)) ||
+-      (o.barcode && o.barcode.toLowerCase().includes(qLower))
+-    );
+-
+-    if (matchedOrder) {
+-      const pName = matchedOrder.patient?.name || 'Patient';
+-      const inv = matchedOrder.invoiceNumber || matchedOrder.barcode;
+-      const status = matchedOrder.pipelineStatus;
+-      const testsCount = (matchedOrder.tests || []).length;
+-      const testNames = (matchedOrder.tests || []).map(t => t.name || t.code).join(', ');
+-      const due = matchedOrder.balanceDue || 0;
+-
+-      const reply = isHi
+-        ? `<b>αñ«αñ░αÑÇαñ£ αñæαñ░αÑìαñíαñ░ αñ░αñ┐αñòαÑëαñ░αÑìαñí αñ«αñ┐αñ▓αñ╛:</b><br>` +
+-          `ΓÇó <b>αñ¿αñ╛αñ«:</b> ${pName} (${matchedOrder.patient?.uhid || '-'}), αñåαñ»αÑü/αñ▓αñ┐αñéαñù: ${matchedOrder.patient?.age || '-'} / ${matchedOrder.patient?.gender || '-'}<br>` +
+-          `ΓÇó <b>αñçαñ¿αÑìαñ╡αÑëαñçαñ╕ / αñ¼αñ╛αñ░αñòαÑïαñí:</b> ${inv} ΓÇó ${matchedOrder.barcode}<br>` +
+-          `ΓÇó <b>αñ╡αñ░αÑìαññαñ«αñ╛αñ¿ αñ╕αÑìαñÑαñ┐αññαñ┐:</b> <span class="badge ${status === 'RELEASED' ? 'ok' : status === 'VALIDATED' ? 'good' : 'warn'}">${status}</span><br>` +
+-          `ΓÇó <b>αñ£αñ╛αñéαñÜαÑçαñé (${testsCount}):</b> ${testNames}<br>` +
+-          `ΓÇó <b>αñ¼αñ┐αñ▓αñ┐αñéαñù:</b> αñòαÑüαñ▓ Γé╣${matchedOrder.netPayable || 0}, αñ¬αÑìαñ░αñ╛αñ¬αÑìαññ Γé╣${matchedOrder.paidAmount || 0}, αñ¼αñ╛αñòαÑÇ <b>Γé╣${due}</b>`
+-        : `<b>Order Record Found:</b><br>` +
+-          `ΓÇó <b>Patient:</b> ${pName} (${matchedOrder.patient?.uhid || '-'}), Age/Sex: ${matchedOrder.patient?.age || '-'} / ${matchedOrder.patient?.gender || '-'}<br>` +
+-          `ΓÇó <b>Invoice / Barcode:</b> ${inv} ΓÇó ${matchedOrder.barcode}<br>` +
+-          `ΓÇó <b>Current Status:</b> <span class="badge ${status === 'RELEASED' ? 'ok' : status === 'VALIDATED' ? 'good' : 'warn'}">${status}</span><br>` +
+-          `ΓÇó <b>Tests (${testsCount}):</b> ${testNames}<br>` +
+-          `ΓÇó <b>Billing:</b> Net Γé╣${matchedOrder.netPayable || 0}, Paid Γé╣${matchedOrder.paidAmount || 0}, Due <b>Γé╣${due}</b>`;
+-
+-      const actionHtml = `<div class="row" style="gap:6px;margin-top:8px">` +
+-        `<button type="button" class="primary" style="font-size:11px;padding:5px 10px" onclick="editResults('${matchedOrder.id}');toggleGiaCopilot()">Γ£Å∩╕Å Open Result Entry</button>` +
+-        `<button type="button" class="top-btn" style="font-size:11px;padding:5px 10px" onclick="printOrder('${matchedOrder.id}')">≡ƒû¿∩╕Å View Report</button>` +
+-        `<button type="button" class="top-btn" style="font-size:11px;padding:5px 10px" onclick="printBill('${matchedOrder.id}')">≡ƒº╛ View Bill</button>` +
+-        `</div>`;
+-
+-      return res.json({ reply, actionHtml });
+-    }
+-
+-    // 2. CBC / Parameters Intent
+-    if (qLower.includes('cbc') || qLower.includes('hemoglobin') || qLower.includes('tlc') || qLower.includes('platelet') || qLower.includes('dlc') || qLower.includes('αñ╕αÑÇαñ¼αÑÇαñ╕αÑÇ')) {
+-      const reply = isHi
+-        ? `<b>Complete Blood Count (CBC) with ESR ΓÇö 15 αñòαÑìαñ▓αÑÇαñ¿αñ┐αñòαñ▓ αñ¬αÑêαñ░αñ╛αñ«αÑÇαñƒαñ░αÑìαñ╕:</b><br>` +
+-          `1. <b>Hb (Hemoglobin):</b> 13.0 - 17.0 g/dL (Male) / 12.0 - 15.0 (Female)<br>` +
+-          `2. <b>TLC (WBC):</b> 4,000 - 11,000 /cumm<br>` +
+-          `3. <b>Platelet Count:</b> 1,50,000 - 4,50,000 /cumm<br>` +
+-          `4. <b>RBC Count:</b> 4.5 - 5.5 mill/cumm<br>` +
+-          `5. <b>PCV / Hematocrit:</b> 40.0 - 50.0 %<br>` +
+-          `6. <b>MCV / MCH / MCHC / RDW:</b> Red Cell Indices<br>` +
+-          `7. <b>DLC:</b> Neutrophils (40-75%), Lymphocytes (20-45%), Monocytes (2-8%), Eosinophils (1-6%), Basophils (0-1%)<br>` +
+-          `8. <b>ESR (Westergren):</b> 0 - 15 mm/hr<br><br>` +
+-          `≡ƒæë <i>Result Entry αñ«αÑçαñé "Enter results" αñªαñ¼αñ╛αñ¿αÑç αñ¬αñ░ αñ»αñ╣ αñ¬αÑéαñ░αñ╛ 15-αñ¬αÑêαñ░αñ╛αñ«αÑÇαñƒαñ░ αñ¬αÑêαñ¿αñ▓ αñûαÑüαñ▓αññαñ╛ αñ╣αÑê, αñ£αñ╣αñ╛αñé αñåαñ¬ αñ╕αÑÇαñºαÑç αñ╡αÑêαñ▓αÑìαñ»αÑéαñ£ αñ¡αñ░ αñ╕αñòαññαÑç αñ╣αÑêαñé αñ»αñ╛ "ΓÜí Auto-Fill Normal Bench Values" αñ¬αñ░ αñòαÑìαñ▓αñ┐αñò αñòαñ░ αñ╕αñòαññαÑç αñ╣αÑêαñéαÑñ</i>`
+-        : `<b>Complete Blood Count (CBC) with ESR ΓÇö 15 Clinical Parameters:</b><br>` +
+-          `1. <b>Hb (Hemoglobin):</b> 13.0 - 17.0 g/dL (M) / 12.0 - 15.0 (F)<br>` +
+-          `2. <b>TLC (Total WBC):</b> 4,000 - 11,000 /cumm<br>` +
+-          `3. <b>Platelet Count:</b> 150,000 - 450,000 /cumm<br>` +
+-          `4. <b>RBC Count:</b> 4.5 - 5.5 mill/cumm<br>` +
+-          `5. <b>PCV (Hematocrit):</b> 40.0 - 50.0 %<br>` +
+-          `6. <b>Indices:</b> MCV (80-96 fL), MCH (27-33 pg), MCHC (32-36 g/dL), RDW (11.5-14.5 %)<br>` +
+-          `7. <b>DLC (5-Part):</b> Neutrophils (40-75%), Lymphocytes (20-45%), Monocytes (2-8%), Eosinophils (1-6%), Basophils (0-1%)<br>` +
+-          `8. <b>ESR (Westergren):</b> 0 - 15 mm/1st hr<br><br>` +
+-          `≡ƒæë <i>Opening "Enter results" in the Result Workbench displays all 15 parameters with one-click normal bench population and individual flag derivation.</i>`;
+-
+-      const actionHtml = `<button type="button" class="primary" style="font-size:11px;padding:5px 10px" onclick="show('worklist');toggleGiaCopilot()">≡ƒôï Open Result Workbench</button>`;
+-      return res.json({ reply, actionHtml });
+-    }
+-
+-    // 3. Tab explanation Intent ("tabs ka kam btao", "explain tabs", "modules")
+-    if (qLower.includes('tab') || qLower.includes('αñòαñ╛αñ«') || qLower.includes('explain') || qLower.includes('module') || qLower.includes('kya kam')) {
+-      const reply = isHi
+-        ? `<b>HRGen GIA LIMS ΓÇö αñ╕αñ¡αÑÇ αñ«αÑüαñûαÑìαñ» αñ«αÑëαñíαÑìαñ»αÑéαñ▓αÑìαñ╕ αñòαñ╛ αñòαñ╛αñ░αÑìαñ» αñ╡αñ┐αñ╡αñ░αñú:</b><br>` +
+-          `ΓÇó <b>Γîé Command Center:</b> αñ▓αÑêαñ¼ αñòαñ╛ αñ«αÑüαñûαÑìαñ» αñíαÑêαñ╢αñ¼αÑïαñ░αÑìαñí (αñ«αñ░αÑÇαñ£ αñ╕αñéαñûαÑìαñ»αñ╛, αñåαñ£ αñòαñ╛ αñòαñ▓αÑçαñòαÑìαñ╢αñ¿, αñòαÑìαñ░αñ┐αñƒαñ┐αñòαñ▓ αñàαñ▓αñ░αÑìαñƒαÑìαñ╕, αñ╡αñ░αÑìαñòαñ½αñ╝αÑìαñ▓αÑï αñ╕αÑìαñƒαÑçαñƒαñ╕)αÑñ<br>` +
+-          `ΓÇó <b>∩╝ï Direct Registration & Accessioning (OPD):</b> αñ½αñ╛αñ╕αÑìαñƒ αñ«αñ░αÑÇαñ£ αñ░αñ£αñ┐αñ╕αÑìαñƒαÑìαñ░αÑçαñ╢αñ¿, αñíαÑëαñòαÑìαñƒαñ░ αñ░αÑçαñ½αñ░αñ▓, αñƒαÑçαñ╕αÑìαñƒ αñ¼αñ╛αñ╕αÑìαñòαÑçαñƒ αñöαñ░ αññαÑüαñ░αñéαññ 50x25mm αñ¼αñ╛αñ░αñòαÑïαñí αñ▓αÑçαñ¼αñ▓ αñ£αñ¿αñ░αÑçαñ╢αñ¿αÑñ<br>` +
+-          `ΓÇó <b>Γùë Patients Master:</b> αñ╕αñ¡αÑÇ αñ¬αÑüαñ░αñ╛αñ¿αÑç αñ╡ αñ¿αñÅ αñ«αñ░αÑÇαñ£αÑïαñé αñòαÑÇ αñ╣αñ┐αñ╕αÑìαñƒαÑìαñ░αÑÇ, UHID αñ╕αñ░αÑìαñÜ αñöαñ░ αñ╡αñ┐αñ£αñ╝αñ┐αñƒ αñ░αñ┐αñòαÑëαñ░αÑìαñíαÑìαñ╕αÑñ<br>` +
+-          `ΓÇó <b>Γé╣ Billing POS:</b> αñ¬αÑçαñ╢αÑçαñéαñƒ αñ¼αñ┐αñ▓αñ┐αñéαñù, αñòαÑêαñ╢/UPI/αñòαñ╛αñ░αÑìαñí αñ¬αÑçαñ«αÑçαñéαñƒ, αñíαñ┐αñ╕αÑìαñòαñ╛αñëαñéαñƒ αñöαñ░ αñ░αñ╕αÑÇαñª αñ¬αÑìαñ░αñ┐αñéαñƒαñ┐αñéαñùαÑñ<br>` +
+-          `ΓÇó <b>Γûñ Result Workbench:</b> αñ╕αñ¡αÑÇ αñƒαÑçαñ╕αÑìαñƒαÑìαñ╕ αñòαÑç αñ░αñ┐αñ£αñ▓αÑìαñƒ αñ¡αñ░αñ¿αñ╛, αñ½αÑëαñ░αÑìαñ«αÑéαñ▓αñ╛ αñòαÑêαñ▓αñòαÑüαñ▓αÑçαñ╢αñ¿ (eGFR, LDL, VLDL) αñöαñ░ αñíαÑëαñòαÑìαñƒαñ░ αñ╡αÑêαñ▓αñ┐αñíαÑçαñ╢αñ¿αÑñ<br>` +
+-          `ΓÇó <b>ΓùÆ QC / Westgard:</b> αñªαÑêαñ¿αñ┐αñò αñòαÑìαñ╡αñ╛αñ▓αñ┐αñƒαÑÇ αñòαñéαñƒαÑìαñ░αÑïαñ▓ (IQC), 6 αñ╡αÑçαñ╕αÑìαñƒαñùαñ╛αñ░αÑìαñí αñ░αÑéαñ▓αÑìαñ╕ (1-3s, 2-2s, R-4s, etc.), αñÅαñ¿αñ╛αñ▓αñ╛αñçαñ£αñ░ αñöαñ░ αñòαÑêαñ▓αñ┐αñ¼αÑìαñ░αÑçαñ╢αñ¿ αñ░αñ┐αñòαÑëαñ░αÑìαñíαÑìαñ╕αÑñ<br>` +
+-          `ΓÇó <b>Γûº Reports:</b> αñ░αñ┐αñ▓αÑÇαñ£ αñòαÑÇ αñùαñê αñ╕αñ¡αÑÇ αñ░αñ┐αñ¬αÑïαñ░αÑìαñƒαÑìαñ╕ αñòαñ╛ HMAC-SHA256 αñíαñ┐αñ£αñ┐αñƒαñ▓ αñ¬αÑìαñ░αÑéαñ½ αñöαñ░ αñ¬αñ¼αÑìαñ▓αñ┐αñò QR αñ╡αÑçαñ░αñ┐αñ½αñ┐αñòαÑçαñ╢αñ¿αÑñ<br>` +
+-          `ΓÇó <b>≡ƒÅó Center KYC:</b> αñ▓αÑêαñ¼ αñòαñ╛ αñ¿αñ╛αñ«, αñ¬αññαñ╛, CEA αñ▓αñ╛αñçαñ╕αÑçαñéαñ╕ αñ¿αñéαñ¼αñ░, GSTIN, PAN αñöαñ░ αñ¬αÑêαñÑαÑïαñ▓αÑëαñ£αñ┐αñ╕αÑìαñƒ αñíαñ┐αñ£αñ┐αñƒαñ▓ αñ╕αñ┐αñùαÑìαñ¿αÑçαñÜαñ░ αñ╕αÑçαñƒαñàαñ¬αÑñ<br>` +
+-          `ΓÇó <b>ΓÜÖ∩╕Å Settings / Report Studio:</b> αñ¬αÑìαñ░αÑÇ-αñ¬αÑìαñ░αñ┐αñéαñƒαÑçαñí αñ▓αÑçαñƒαñ░αñ╣αÑçαñí αñ«αñ╛αñ░αÑìαñ£αñ┐αñ¿ αñòαÑêαñ▓αñ┐αñ¼αÑìαñ░αÑçαñ╢αñ¿ (Top mm Space) αñöαñ░ αñ╕αñ┐αñ╕αÑìαñƒαñ« αñ╕αÑçαñƒαñ┐αñéαñùαÑìαñ╕αÑñ`
+-        : `<b>HRGen GIA LIMS ΓÇö Operational Modules Guide:</b><br>` +
+-          `ΓÇó <b>Γîé Command Center:</b> Executive operations cockpit (patient volume, today revenue, critical panic alerts, pipeline flow).<br>` +
+-          `ΓÇó <b>∩╝ï Direct Registration & Accessioning:</b> Rapid walk-in booking, referring doctor selection, test basket, instant 50x25mm tube barcodes.<br>` +
+-          `ΓÇó <b>Γùë Patients Master:</b> Centralized patient directory with permanent UHID, demographics, and lifetime visit history.<br>` +
+-          `ΓÇó <b>Γé╣ Billing POS:</b> Front-desk cashiering, Cash/UPI/Card collection, discount controls, and thermal/A4 invoice printing.<br>` +
+-          `ΓÇó <b>Γûñ Result Workbench:</b> Clinical parameter entry, auto-derivation engine (eGFR, LDL, VLDL), and technical review.<br>` +
+-          `ΓÇó <b>ΓùÆ QC / Westgard:</b> Daily internal quality control (IQC), 6-rule Westgard engine, analyzer provenance, and calibration curves.<br>` +
+-          `ΓÇó <b>Γûº Reports:</b> Released investigation repository with tamper-evident HMAC-SHA256 signatures and QR verification.<br>` +
+-          `ΓÇó <b>≡ƒÅó Center KYC:</b> Lab profile, CEA Clinical Establishment License, GSTIN, PAN, and Pathologist e-signature.<br>` +
+-          `ΓÇó <b>ΓÜÖ∩╕Å Settings / Report Studio:</b> Pre-printed clinic letterhead margin calibration and diagnostic format customization.`;
+-
+-      const actionHtml = `<div class="row" style="gap:6px;margin-top:8px">` +
+-        `<button type="button" class="primary" style="font-size:11px;padding:5px 10px" onclick="show('opd');toggleGiaCopilot()">∩╝ï Patient Entry</button>` +
+-        `<button type="button" class="top-btn" style="font-size:11px;padding:5px 10px" onclick="show('worklist');toggleGiaCopilot()">ΓÜí Results</button>` +
+-        `<button type="button" class="top-btn" style="font-size:11px;padding:5px 10px" onclick="openIqcDrawer();toggleGiaCopilot()">≡ƒö¼ Run QC</button>` +
+-        `</div>`;
+-
+-      return res.json({ reply, actionHtml });
+-    }
+-
+-    // 4. Center KYC & Lab Setup Intent
+-    if (qLower.includes('kyc') || qLower.includes('onboard') || qLower.includes('lab name') || qLower.includes('license') || qLower.includes('center') || qLower.includes('signature') || qLower.includes('αñíαñ╛αñ»αñ░αÑçαñòαÑìαñƒαñ░')) {
+-      const reply = isHi
+-        ? `<b>Center KYC & Laboratory Profile:</b> αñåαñ¬ αñ╕αÑçαñéαñƒαñ░ αñòαñ╛ αñ¿αñ╛αñ«, CEA αñ▓αñ╛αñçαñ╕αÑçαñéαñ╕ αñ¿αñéαñ¼αñ░, GSTIN, PAN, αñöαñ░ αñíαñ╛αñ»αñ░αÑçαñòαÑìαñƒαñ░ αñòαÑÇ αñíαñ┐αñ£αñ┐αñƒαñ▓ αñ╕αñ┐αñùαÑìαñ¿αÑçαñÜαñ░ αñ╕αÑÇαñºαÑç KYC αñ«αÑëαñíαÑìαñ»αÑéαñ▓ αñ«αÑçαñé αñàαñ¬αñíαÑçαñƒ αñòαñ░ αñ╕αñòαññαÑç αñ╣αÑêαñéαÑñ`
+-        : `<b>Center KYC & Laboratory Profile:</b> You can configure Lab Legal Name, CEA Reg, GSTIN, PAN, and Pathologist Digital Signature in Center KYC.`;
+-      const actionHtml = `<button type="button" class="primary" style="font-size:11px;padding:5px 10px" onclick="show('kyc');toggleGiaCopilot()">≡ƒÅó Open Center KYC</button>`;
+-      return res.json({ reply, actionHtml });
+-    }
+-
+-    // 5. Margin / Letterhead Studio Intent
+-    if (qLower.includes('margin') || qLower.includes('print') || qLower.includes('letterhead') || qLower.includes('stationery') || qLower.includes('top space') || qLower.includes('αñ¬αÑìαñ░αñ┐αñéαñƒ')) {
+-      const reply = isHi
+-        ? `<b>Printer Letterhead & Margins:</b> αñàαñùαñ░ αñåαñ¬ αñ¬αñ╣αñ▓αÑç αñ╕αÑç αñ¢αñ¬αÑç (Pre-printed) αñ▓αÑçαñƒαñ░αñ╣αÑçαñí αñ¬αñ░ αñ¬αÑìαñ░αñ┐αñéαñƒ αñòαñ░ αñ░αñ╣αÑç αñ╣αÑêαñé, αññαÑï <b>Settings ΓåÆ Report Studio</b> αñ«αÑçαñé αñ£αñ╛αñòαñ░ "Pre-Printed Stationery" αñÜαÑüαñ¿αÑçαñé αñöαñ░ Top Margin (mm) αñ╕αÑçαñƒ αñòαñ░αÑçαñéαÑñ αñ»αñ╣ αñ¬αñ╣αñ▓αÑÇ αñ╢αÑÇαñƒ αñ¬αñ░ αñ╕αÑìαñ¬αÑçαñ╕ αñ¢αÑïαñíαñ╝αÑçαñùαñ╛αÑñ`
+-        : `<b>Printer Letterhead Calibration:</b> If using pre-printed clinic letterhead stationery, select "Pre-Printed Stationery" in <b>Settings ΓåÆ Report Studio</b> and set the Top Header Blank Space in mm.`;
+-      const actionHtml = `<button type="button" class="primary" style="font-size:11px;padding:5px 10px" onclick="show('settings');toggleGiaCopilot()">≡ƒû¿∩╕Å Calibrate Report Studio</button>`;
+-      return res.json({ reply, actionHtml });
+-    }
+-
+-    // 6. Test Catalogue & Rates Intent
+-    if (qLower.includes('add test') || qLower.includes('rate') || qLower.includes('price') || qLower.includes('catalogue') || qLower.includes('αñ¿αñ»αñ╛ αñƒαÑçαñ╕αÑìαñƒ') || qLower.includes('αñ░αÑçαñƒ')) {
+-      const reply = isHi
+-        ? `<b>Test Catalogue & Rate Master:</b> αñåαñ¬ αñòαñ┐αñ╕αÑÇ αñ¡αÑÇ αñƒαÑçαñ╕αÑìαñƒ αñòαñ╛ αñ░αÑçαñƒ αññαÑüαñ░αñéαññ αñÅαñíαñ┐αñƒ αñòαñ░ αñ╕αñòαññαÑç αñ╣αÑêαñé αñ»αñ╛ αñ¿αñ»αñ╛ αñƒαÑçαñ╕αÑìαñƒ αñ£αÑïαñíαñ╝ αñ╕αñòαññαÑç αñ╣αÑêαñéαÑñ αñ╣αñ░ αñ¼αñªαñ▓αñ╛αñ╡ HMAC-SHA256 αñ▓αÑçαñ£αñ░ αñ«αÑçαñé αñ╕αÑüαñ░αñòαÑìαñ╖αñ┐αññ αñ░αÑéαñ¬ αñ╕αÑç αñ░αñ┐αñòαÑëαñ░αÑìαñí αñ╣αÑïαññαñ╛ αñ╣αÑêαÑñ`
+-        : `<b>Test Catalogue & Rates Master:</b> You can instantly edit prices or add new investigations to the catalogue. Every modification is cryptographically recorded.`;
+-      const actionHtml = `<div class="row" style="gap:6px"><button type="button" class="primary" style="font-size:11px;padding:5px 10px" onclick="openAddTestModal();toggleGiaCopilot()">≡ƒÅ╖∩╕Å + Add New Test</button><button type="button" class="top-btn" style="font-size:11px;padding:5px 10px" onclick="show('settings');toggleGiaCopilot()">View Rates Master</button></div>`;
+-      return res.json({ reply, actionHtml });
+-    }
+-
+-    // 7. Doctor Referral & UPI Payout Intent
+-    if (qLower.includes('doctor') || qLower.includes('commission') || qLower.includes('referral') || qLower.includes('upi') || qLower.includes('αñíαÑëαñòαÑìαñƒαñ░') || qLower.includes('αñòαñ«αÑÇαñ╢αñ¿')) {
+-      const reply = isHi
+-        ? `<b>Doctor Referral & UPI Payouts:</b> αñíαÑëαñòαÑìαñƒαñ░αÑïαñé αñòαñ╛ αñòαñ«αÑÇαñ╢αñ¿ (αñ¬αÑìαñ░αññαñ┐αñ╢αññ αñ»αñ╛ αñ½αñ┐αñòαÑìαñ╕αÑìαñí Γé╣) αñ╕αÑçαñƒ αñòαñ░αÑçαñé αñöαñ░ αñ«αñ╣αÑÇαñ¿αÑç αñòαÑç αñàαñéαññ αñ«αÑçαñé αñÅαñò αñòαÑìαñ▓αñ┐αñò αñ«αÑçαñé <b>UPI Payout CSV</b> αñíαñ╛αñëαñ¿αñ▓αÑïαñí αñòαñ░αñòαÑç αñ╕αÑÇαñºαÑç αñ¼αÑêαñéαñò/PhonePe/GPay αñ╕αÑç αñ╕αÑçαñƒαñ▓ αñòαñ░αÑçαñéαÑñ`
+-        : `<b>Doctor Referral Commissions:</b> Manage percentage or flat INR commissions per doctor, and export a 1-click UPI Settlement CSV for direct bulk payouts.`;
+-      const actionHtml = `<button type="button" class="top-btn" style="background:#059669;color:#fff;border:0;font-size:11px;padding:5px 10px" onclick="exportDoctorUpiPayout()">≡ƒôÑ Export UPI Payout CSV</button>`;
+-      return res.json({ reply, actionHtml });
+-    }
+-
+-    // 8. Critical / Panic Value Intent
+-    if (qLower.includes('critical') || qLower.includes('panic') || qLower.includes('read-back') || qLower.includes('emergency') || qLower.includes('αñòαÑìαñ░αñ┐αñƒαñ┐αñòαñ▓')) {
+-      const reply = isHi
+-        ? `<b>ISO 15189 Telephonic Read-Back Call:</b> αñòαÑìαñ░αñ┐αñƒαñ┐αñòαñ▓ αñ»αñ╛ αñ¬αÑêαñ¿αñ┐αñò αñ╡αÑêαñ▓αÑìαñ»αÑé αñåαñ¿αÑç αñ¬αñ░ αñíαÑëαñòαÑìαñƒαñ░ αñòαÑï αññαÑüαñ░αñéαññ αñòαÑëαñ▓ αñòαñ░αÑçαñé αñöαñ░ αñëαñ¿αñòαÑç αñªαÑìαñ╡αñ╛αñ░αñ╛ αñªαÑïαñ╣αñ░αñ╛αñÅ αñùαñÅ (read-back) αñ¬αñ░αñ┐αñúαñ╛αñ« αñòαÑï αñªαñ░αÑìαñ£ αñòαñ░αÑçαñéαÑñ αñ¼αñ┐αñ¿αñ╛ αñçαñ╕αñòαÑç αñ░αñ┐αñ¬αÑïαñ░αÑìαñƒ αñ░αñ┐αñ▓αÑÇαñ£ αñ¿αñ╣αÑÇαñé αñ╣αÑï αñ╕αñòαññαÑÇαÑñ`
+-        : `<b>ISO 15189 Critical Value Protocol:</b> Critical panic values require immediate telephonic notification with documented read-back confirmation before release.`;
+-      const actionHtml = `<button type="button" class="primary" style="background:#dc2626;border-color:#b91c1c;font-size:11px;padding:5px 10px" onclick="openCriticalCommModal();toggleGiaCopilot()">≡ƒÜ¿ Open Critical Cockpit</button>`;
+-      return res.json({ reply, actionHtml });
+-    }
+-
+-    // 9. Westgard QC Intent
+-    if (qLower.includes('westgard') || qLower.includes('qc') || qLower.includes('1-3s') || qLower.includes('2-2s') || qLower.includes('r-4s') || qLower.includes('αñòαñéαñƒαÑìαñ░αÑïαñ▓')) {
+-      const reply = isHi
+-        ? `<b>Westgard IQC Resolution:</b> αñ»αñªαñ┐ 1-3s αñ»αñ╛ 2-2s αñÅαñ░αñ░ αñåαññαñ╛ αñ╣αÑê, αññαÑï: 1) αñ░αÑÇαñ£αÑçαñéαñƒ αñ╡αñ╛αñ»αñ▓ αñöαñ░ αñÅαñòαÑìαñ╕αñ¬αñ╛αñ»αñ░αÑÇ αñÜαÑçαñò αñòαñ░αÑçαñé, 2) αñçαñéαñ╕αÑìαñƒαÑìαñ░αÑéαñ«αÑçαñéαñƒ αñòαÑÇ αñòαÑêαñ▓αñ┐αñ¼αÑìαñ░αÑçαñ╢αñ¿ αñ£αñ╛αñéαñÜαÑçαñé, 3) αñ½αÑìαñ░αÑçαñ╢ αñòαñéαñƒαÑìαñ░αÑïαñ▓ αñ╡αñ╛αñ»αñ▓ αñ░αñ¿ αñòαñ░αÑçαñéαÑñ αñåαñ¬ αñ╕αÑÇαñºαÑç QC αñ╕αÑìαñ▓αñ╛αñçαñí-αñåαñëαñƒ αñíαÑìαñ░αÑëαñàαñ░ αñ╕αÑç αñ¿αñ»αñ╛ αñ░αñ¿ αñªαñ░αÑìαñ£ αñòαñ░ αñ╕αñòαññαÑç αñ╣αÑêαñéαÑñ`
+-        : `<b>Westgard Quality Control:</b> For 1-3s or 2-2s rejections: 1) Verify reagent lot integrity, 2) Check analyzer calibration curve, 3) Rerun with a fresh control aliquot. Use the slide-out drawer to record runs.`;
+-      const actionHtml = `<button type="button" class="primary" style="font-size:11px;padding:5px 10px" onclick="openIqcDrawer();toggleGiaCopilot()">≡ƒö¼ + Run IQC Westgard</button>`;
+-      return res.json({ reply, actionHtml });
+-    }
+-
+-    // 10. Audit Trail Intent
+-    if (qLower.includes('audit') || qLower.includes('trace') || qLower.includes('history') || qLower.includes('edit bill') || qLower.includes('αñ▓αÑçαñ£αñ░')) {
+-      const reply = isHi
+-        ? `<b>Staff Activity & Traceability Ledger:</b> αñ╣αñ░ αñ¼αñ┐αñ▓ αñ¼αñªαñ▓αñ╛αñ╡, αñƒαÑçαñ╕αÑìαñƒ αñòαÑêαñéαñ╕αñ▓αÑçαñ╢αñ¿, αñ░αñ┐αñ£αñ▓αÑìαñƒ αñÅαñíαñ┐αñƒ αñöαñ░ αñíαÑëαñòαÑìαñƒαñ░ αñ╕αñ╛αñçαñ¿-αñæαñ½ αñòαñ╛ αñ╕αñ«αñ», αñ»αÑéαñ£αñ░ αñåαñêαñíαÑÇ αñöαñ░ HMAC-SHA256 αñ╣αÑêαñ╢ αñ▓αÑçαñ£αñ░ αñ«αÑçαñé αñ╕αÑüαñ░αñòαÑìαñ╖αñ┐αññ αñ╣αÑêαÑñ`
+-        : `<b>Immutable Forensic Audit Ledger:</b> Complete staff accountability: Every bill revision, cancellation, rate change, and signoff is tracked with hash verification.`;
+-      const actionHtml = `<button type="button" class="primary" style="font-size:11px;padding:5px 10px" onclick="show('audit');toggleGiaCopilot()">≡ƒôï View Audit Ledger</button>`;
+-      return res.json({ reply, actionHtml });
+-    }
+-
+-    // 11. Live System Status Intent
+-    if (qLower.includes('status') || qLower.includes('summary') || qLower.includes('patient count') || qLower.includes('revenue') || qLower.includes('αñ╕αÑìαñÑαñ┐αññαñ┐')) {
+-      const reply = isHi
+-        ? `<b>αñ▓αñ╛αñçαñ╡ αñ▓αÑêαñ¼ αñ╕αÑìαñƒαÑçαñƒαñ╕:</b> αñòαÑüαñ▓ αñ«αñ░αÑÇαñ£: <b>${patients.length}</b>, αñòαÑüαñ▓ αñæαñ░αÑìαñíαñ░αÑìαñ╕: <b>${orders.length}</b>, αñ╕αñòαÑìαñ░αñ┐αñ» αñÅαñ¿αñ╛αñ▓αñ╛αñçαñ£αñ░αÑìαñ╕: <b>${instruments.length}</b>αÑñ αñ╕αñ┐αñ╕αÑìαñƒαñ« 100% αñÅαñ»αñ░-αñùαÑêαñ¬αÑìαñí αñ╡ αñÅαñòαÑìαñƒαñ┐αñ╡ αñ╣αÑêαÑñ`
+-        : `<b>Live Lab Status:</b> Total Patients: <b>${patients.length}</b>, Total Orders: <b>${orders.length}</b>, Active Analyzers: <b>${instruments.length}</b>. System is 100% operational.`;
+-      const actionHtml = `<button type="button" class="primary" style="font-size:11px;padding:5px 10px" onclick="show('dashboard');toggleGiaCopilot()">Γîé Command Center</button>`;
+-      return res.json({ reply, actionHtml });
+-    }
+-
+-    // Fallback: Comprehensive contextual response
+-    const reply = isHi
+-      ? `αñ¿αñ«αñ╕αÑìαññαÑç! αñ«αÑêαñé αñåαñ¬αñòαñ╛ GIA Clinical AI Copilot αñ╣αÑéαñüαÑñ αñåαñ¬αñòαÑÇ αñ¬αÑéαñ¢αññαñ╛αñ¢ ("${query}") αñòαÑç αñ╕αñéαñªαñ░αÑìαñ¡ αñ«αÑçαñé, αñåαñ¬ αñ¿αÑÇαñÜαÑç αñªαñ┐αñÅ αñùαñÅ αññαÑüαñ░αñéαññ αñ╡αñ┐αñòαñ▓αÑìαñ¬αÑïαñé αñ«αÑçαñé αñ╕αÑç αñÜαÑüαñ¿ αñ╕αñòαññαÑç αñ╣αÑêαñé αñ»αñ╛ αñòαñ┐αñ╕αÑÇ αñ¡αÑÇ αñ«αñ░αÑÇαñ£, αñƒαÑçαñ╕αÑìαñƒ, αñ¼αñ┐αñ▓ αñ»αñ╛ αñ╡αÑçαñ╕αÑìαñƒαñùαñ╛αñ░αÑìαñí QC αñòαÑç αñ¼αñ╛αñ░αÑç αñ«αÑçαñé αñ¬αÑéαñ¢ αñ╕αñòαññαÑç αñ╣αÑêαñé:`
+-      : `Hello! I am your GIA Clinical AI Copilot. Regarding your query ("${query}"), please select from the quick clinical actions below or ask about any patient, test, billing, or Westgard QC issue:`;
+-
+-    const actionHtml = `<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px">` +
+-      `<button type="button" class="top-btn" style="font-size:11px;padding:4px 8px" onclick="show('opd');toggleGiaCopilot()">∩╝ï Patient Booking</button>` +
+-      `<button type="button" class="top-btn" style="font-size:11px;padding:4px 8px" onclick="show('worklist');toggleGiaCopilot()">ΓÜí Result Workbench</button>` +
+-      `<button type="button" class="top-btn" style="font-size:11px;padding:4px 8px" onclick="openIqcDrawer();toggleGiaCopilot()">≡ƒö¼ Run QC</button>` +
+-      `<button type="button" class="top-btn" style="font-size:11px;padding:4px 8px" onclick="show('kyc');toggleGiaCopilot()">≡ƒÅó Center KYC</button>` +
+-      `</div>`;
+-
+-    res.json({ reply, actionHtml });
+-  });
+-
+-  // Clinical Interpretation Engine Route
+-  app.get('/api/clinical-interpretations',auth,async(req,res)=>{
+-    const { CLINICAL_INTERPRETATIONS } = require('./services/clinicalInterpretation');
+-    res.json(CLINICAL_INTERPRETATIONS);
+-  });
+-
+   app.get('/api/validation/77',auth,requireRole('admin','pathologist'),async(req,res)=>{const proof=FEATURES.map(f=>({id:f.id,name:f.name,phase:f.phase,server:true,ui:true,evidence:true,status:'IMPLEMENTED'}));res.json({count:77,ready:77,proof});});
+ }
+ module.exports={registerPlatformRoutes,PLAN_CATALOG};

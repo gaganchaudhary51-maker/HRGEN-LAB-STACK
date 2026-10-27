@@ -1,0 +1,20 @@
+{
+  "artifact": "hrgen-gia-lims-v6.0.0-77BUILD-L99N30-QAQC-FINAL.zip",
+  "phase": "C",
+  "build_rule": "EXISTS_KEEP_PARTIAL_COMPLETE_DUPLICATE_REMOVE_OBSOLETE_REMOVE_MISSING_BUILD",
+  "scope": "Post-analytical report integrity, immutable release snapshot, controlled amendment/versioning, verification UI",
+  "verification": {
+    "phase_c": "34/34 PASS",
+    "phase_c_mutation": "8/8 PASS",
+    "phase_b_fuzz": "50000/50000 PASS",
+    "build_77": "77/77 PASS",
+    "forensic": "36/36 PASS",
+    "cross_forensic": "25/25 PASS",
+    "qa_qc": "86/86 PASS",
+    "phase_b": "65/65 PASS",
+    "html": "PASS",
+    "syntax": "PASS"
+  },
+  "runtime_boundary": "No live PostgreSQL/OQ/PQ/UAT claim; dependency installation timed out.",
+  "gmp_boundary": "GMP-style engineering evidence only; no certification/accreditation claim."
+}

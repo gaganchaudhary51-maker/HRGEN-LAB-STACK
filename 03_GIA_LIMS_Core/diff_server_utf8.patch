@@ -1,0 +1,504 @@
+﻿diff --git "a/D:\\HRGen LIMS\\HRGENLIMS\\HRGen-GIA-LIMS-PORTABLE-PRODUCTION-VAULT-2026\\server.js" "b/C:\\Users\\pc\\Desktop\\HRGEN GIA LIMS\\server.js"
+index c468b58..4689904 100644
+--- "a/D:\\HRGen LIMS\\HRGENLIMS\\HRGen-GIA-LIMS-PORTABLE-PRODUCTION-VAULT-2026\\server.js"	
++++ "b/C:\\Users\\pc\\Desktop\\HRGEN GIA LIMS\\server.js"	
+@@ -15,7 +15,7 @@ const crypto = require('crypto');
+ const fs = require('fs');
+ const QRCode = require('qrcode');
+ const bcrypt = require('bcryptjs');
+-const { ensureSchema, loadState, persistState, pool, createTenant, nextSequence, getPlatformRecord } = require('./db/postgres');
++const { ensureSchema, assertRuntimeRole, acquireSingleWriterLease, loadState, persistState, pool, createTenant, nextSequence, getPlatformRecord } = require('./db/postgres');
+ const { registerPlatformRoutes } = require('./server/platformRoutes');
+ const { startMLLPEdge } = require('./server/integrations/mllpEdge');
+ const { startASTMEdge } = require('./server/integrations/astm');
+@@ -67,18 +67,7 @@ if (NODE_ENV === 'production' && (!BOOTSTRAP_ADMIN_USERNAME || BOOTSTRAP_ADMIN_P
+ }
+ 
+ const sessions = new Map();
+-function matchTenant(entityTenant, reqTenant) {
+-  const e = String(entityTenant || 'default').trim().toUpperCase();
+-  const r = String(reqTenant || 'default').trim().toUpperCase();
+-  if (e === r) return true;
+-  if ((e === 'DEFAULT' || e === 'TEN-DEFAULT') && (r === 'DEFAULT' || r === 'TEN-DEFAULT')) return true;
+-  return false;
+-}
+-function tenantOf(req){
+-  const tid = req?.auth?.tenantId || 'default';
+-  if (tid === 'default' || tid === 'TEN-DEFAULT') return DB?.tenants?.[0]?.id || 'TEN-DEFAULT';
+-  return tid;
+-}
++function tenantOf(req){ return req?.auth?.tenantId || 'default'; }
+ const rateBuckets = new Map();
+ 
+ function verifyOnPremLicense(tenantSlug='default') {
+@@ -88,8 +77,7 @@ function verifyOnPremLicense(tenantSlug='default') {
+   let license; try { license=JSON.parse(fs.readFileSync(LICENSE_FILE,'utf8')); } catch(e) { throw new Error('Invalid license JSON'); }
+   const payload=Buffer.from(JSON.stringify(license.payload||{}));
+   const sig=Buffer.from(String(license.signature||''),'base64url');
+-  const pubKey = fs.existsSync(LICENSE_PUBLIC_KEY) ? fs.readFileSync(LICENSE_PUBLIC_KEY, 'utf8') : LICENSE_PUBLIC_KEY;
+-  let ok=false; try { ok=crypto.verify(null,payload,{key:pubKey,format:'pem',type:'spki'},sig); } catch {}
++  let ok=false; try { ok=crypto.verify(null,payload,{key:LICENSE_PUBLIC_KEY,format:'pem',type:'spki'},sig); } catch {}
+   const p=license.payload||{}, now=new Date();
+   const expires=p.expiresAt?new Date(p.expiresAt):null, amc=p.amcUntil?new Date(p.amcUntil):null;
+   const timeOk=(!expires||expires>=now)&&(!amc||amc>=now);
+@@ -169,8 +157,6 @@ function requirePermission(permission) {
+ }
+ function rateLimit(max, windowMs) {
+   return async (req, res, next) => {
+-    const isLoopback = req.ip === '127.0.0.1' || req.ip === '::1' || req.ip === '::ffff:127.0.0.1';
+-    const effectiveMax = isLoopback ? Math.max(max, 10000) : max;
+     const tenant = req.auth?.tenantId || 'global';
+     const key = `${tenant}:${req.ip}:${req.path}`;
+     const now = Date.now();
+@@ -182,11 +168,11 @@ function rateLimit(max, windowMs) {
+     b.count++;
+     rateBuckets.set(key, b);
+     
+-    res.setHeader('X-RateLimit-Limit', effectiveMax);
+-    res.setHeader('X-RateLimit-Remaining', Math.max(0, effectiveMax - b.count));
++    res.setHeader('X-RateLimit-Limit', max);
++    res.setHeader('X-RateLimit-Remaining', Math.max(0, max - b.count));
+     res.setHeader('X-RateLimit-Reset', Math.ceil(b.reset / 1000));
+     
+-    if (b.count > effectiveMax) {
++    if (b.count > max) {
+       res.setHeader('Retry-After', Math.ceil((b.reset - now) / 1000));
+       return res.status(429).json({ error: 'Too many requests, please retry later', retryAfterSeconds: Math.ceil((b.reset - now) / 1000) });
+     }
+@@ -300,6 +286,8 @@ async function saveDB() {
+ 
+ async function bootstrapDatabase() {
+   await ensureSchema();
++  await assertRuntimeRole();
++  await acquireSingleWriterLease();
+   const existing = await loadState();
+   DB = existing;
+   if (!DB.tenants?.length) {
+@@ -313,7 +301,7 @@ async function bootstrapDatabase() {
+   DB.users=(DB.users||[]).map(u=>({...u,tenantId:u.tenantId||defaultTenant}));
+   DB.patients=(DB.patients||[]).map(x=>({...x,tenantId:x.tenantId||defaultTenant}));
+   DB.orders=(DB.orders||[]).map(x=>({...x,tenantId:x.tenantId||defaultTenant}));
+-  DB.testCatalog=(DB.testCatalog?.length?DB.testCatalog:(NODE_ENV !== 'production'?SEED_DATABASE.testCatalog:[])).map(x=>({...x,tenantId:(!x.tenantId||x.tenantId==='default')?defaultTenant:x.tenantId}));
++  DB.testCatalog=(DB.testCatalog?.length?DB.testCatalog: (NODE_ENV !== 'production'?SEED_DATABASE.testCatalog:[])).map(x=>({...x,tenantId:x.tenantId||defaultTenant}));
+   normalizeDatabase();
+   if (!DB.users.length) {
+     if (!BOOTSTRAP_ADMIN_USERNAME || BOOTSTRAP_ADMIN_PASSWORD.length < 12) {
+@@ -373,18 +361,12 @@ function canonicalReleasedSnapshot(order) {
+     releasedAt: order.releasedAt || null
+   };
+ }
+-function canonicalJson(obj) {
+-  if (obj === null || typeof obj !== 'object') return JSON.stringify(obj);
+-  if (Array.isArray(obj)) return '[' + obj.map(canonicalJson).join(',') + ']';
+-  const keys = Object.keys(obj).sort();
+-  return '{' + keys.map(k => JSON.stringify(k) + ':' + canonicalJson(obj[k])).join(',') + '}';
+-}
+ function reportHash(order) {
+   return crypto.createHmac('sha256', AUTH_SECRET).update(canonicalReport(order)).digest('hex');
+ }
+ function releasedReportHash(order) {
+   const snapshot = order.reportSnapshot || canonicalReleasedSnapshot(order);
+-  return crypto.createHmac('sha256', AUTH_SECRET).update(canonicalJson(snapshot)).digest('hex');
++  return crypto.createHmac('sha256', AUTH_SECRET).update(JSON.stringify(snapshot)).digest('hex');
+ }
+ function verifyReportIntegrity(order) {
+   if (!order?.reportHash) return false;
+@@ -430,14 +412,14 @@ function requireOrderState(...allowed) {
+ 
+ function normalizeDatabase() {
+   const defaultTenant = DB.tenants?.[0]?.id || 'TEN-DEFAULT';
+-  DB.users = (DB.users||[]).map(x=>({...x,tenantId:(!x.tenantId || x.tenantId==='default')?defaultTenant:x.tenantId}));
+-  DB.patients = (DB.patients||[]).map(x=>({...x,tenantId:(!x.tenantId || x.tenantId==='default')?defaultTenant:x.tenantId}));
+-  DB.orders = (DB.orders||[]).map(x=>({...x,tenantId:(!x.tenantId || x.tenantId==='default')?defaultTenant:x.tenantId}));
+-  DB.testCatalog = (DB.testCatalog||[]).map(x=>({...x,tenantId:(!x.tenantId || x.tenantId==='default')?defaultTenant:x.tenantId}));
+-  DB.qcRuns = (DB.qcRuns||[]).map(x=>({...x,tenantId:(!x.tenantId || x.tenantId==='default')?defaultTenant:x.tenantId}));
+-  DB.instruments = (DB.instruments||[]).map(x=>({...x,tenantId:(!x.tenantId || x.tenantId==='default')?defaultTenant:x.tenantId}));
+-  DB.reagentLots = (DB.reagentLots||[]).map(x=>({...x,tenantId:(!x.tenantId || x.tenantId==='default')?defaultTenant:x.tenantId}));
+-  DB.calibrations = (DB.calibrations||[]).map(x=>({...x,tenantId:(!x.tenantId || x.tenantId==='default')?defaultTenant:x.tenantId}));
++  DB.users = (DB.users||[]).map(x=>({...x,tenantId:x.tenantId||defaultTenant}));
++  DB.patients = (DB.patients||[]).map(x=>({...x,tenantId:x.tenantId||defaultTenant}));
++  DB.orders = (DB.orders||[]).map(x=>({...x,tenantId:x.tenantId||defaultTenant}));
++  DB.testCatalog = (DB.testCatalog||[]).map(x=>({...x,tenantId:x.tenantId||defaultTenant}));
++  DB.qcRuns = (DB.qcRuns||[]).map(x=>({...x,tenantId:x.tenantId||defaultTenant}));
++  DB.instruments = (DB.instruments||[]).map(x=>({...x,tenantId:x.tenantId||defaultTenant}));
++  DB.reagentLots = (DB.reagentLots||[]).map(x=>({...x,tenantId:x.tenantId||defaultTenant}));
++  DB.calibrations = (DB.calibrations||[]).map(x=>({...x,tenantId:x.tenantId||defaultTenant}));
+   DB.patients = (DB.patients || []).map(p => ({ active: p.active !== false, ...p }));
+   DB.orders = (DB.orders || []).map(o => {
+     let status = o.pipelineStatus;
+@@ -529,7 +511,7 @@ async function makeBackup(reason, actor){
+ app.post('/api/auth/login', rateLimit(10, 15 * 60 * 1000), async (req, res) => {
+   const username = String(req.body?.username || '').trim();
+   const password = String(req.body?.password || '');
+-  const requestedTenant = String(req.body?.tenantSlug || req.body?.tenant || 'default').trim().toLowerCase() || 'default';
++  const requestedTenant = String(req.body?.tenantSlug || 'default').trim().toLowerCase();
+   const requestedTenantId = (DB.tenants||[]).find(t=>t.slug===requestedTenant)?.id || requestedTenant;
+   const existing = (DB.users || []).find(u => u.username === username && (u.tenantId||'default') === requestedTenantId);
+   if (!existing || existing.status === 'DISABLED' || !existing.passwordHash || !(await bcrypt.compare(password, existing.passwordHash))) {
+@@ -547,22 +529,6 @@ app.post('/api/auth/logout', auth, async (req, res) => {
+   res.json({ success: true });
+ });
+ 
+-app.post('/api/auth/change-password', auth, async (req, res) => {
+-  const { oldPassword, newPassword } = req.body || {};
+-  if (!oldPassword || !newPassword || typeof newPassword !== 'string' || newPassword.length < 6) {
+-    return res.status(400).json({ error: 'Current password and new password (minimum 6 characters) are required' });
+-  }
+-  const u = (DB.users || []).find(x => x.id === req.auth.userId);
+-  if (!u || !u.passwordHash || !(await bcrypt.compare(String(oldPassword), u.passwordHash))) {
+-    return res.status(401).json({ error: 'Current password is incorrect' });
+-  }
+-  u.passwordHash = await bcrypt.hash(String(newPassword), 12);
+-  u.passwordChangedAt = new Date().toISOString();
+-  appendAudit('PASSWORD_CHANGED', null, req.auth.username, req.auth.role, `Password changed by user ${u.username}`);
+-  await saveDB();
+-  res.json({ success: true, message: 'Password updated successfully' });
+-});
+-
+ app.get('/api/system/info', async (req, res) => {
+   res.json({
+     status: "healthy",
+@@ -593,7 +559,7 @@ app.post('/api/patients', auth, requireRole('admin','pathologist','phlebotomist'
+   }
+   const tokenNo = DB.patients.filter(p=>(p.tenantId||'default')===tenantOf(req)).reduce((m,p) => Math.max(m, Number(p.tokenNo)||0), 0) + 1;
+   const id = `PT-${crypto.randomBytes(8).toString('hex').toUpperCase()}`;
+-  const uhid = `LAB-${new Date().getFullYear()}-${crypto.randomBytes(5).toString('hex').toUpperCase()}`;
++  const uhid = `APX-${new Date().getFullYear()}-${crypto.randomBytes(5).toString('hex').toUpperCase()}`;
+   const newPatient = {
+     id, tenantId: tenantOf(req), tokenNo, uhid,
+     title: typeof title === 'string' ? title.slice(0,10) : "Mr.",
+@@ -638,21 +604,19 @@ app.delete('/api/patients/:id', auth, requireRole('admin','pathologist'), async
+ });
+ 
+ app.get('/api/orders', auth, requireRole('admin','pathologist','tech','phlebotomist'), async (req, res) => {
+-  const tid = tenantOf(req);
+-  const enriched = DB.orders.filter(o => matchTenant(o.tenantId, tid)).map(o => ({ ...o, patient: DB.patients.find(p => p.id === o.patientId && matchTenant(p.tenantId, tid)) || null }));
++  const enriched = DB.orders.filter(o => (o.tenantId||'default')===tenantOf(req)).map(o => ({ ...o, patient: DB.patients.find(p => p.id === o.patientId && (p.tenantId||'default')===tenantOf(req)) || null }));
+   res.json({ orders: enriched });
+ });
+ 
+ app.post('/api/orders', auth, requireRole('admin','pathologist','tech'), async (req, res) => {
+   const { patientId, tests, paymentMode, discountType, discountValue } = req.body || {};
+   const requestedPaidAmount = req.body?.paidAmount == null ? 0 : Number(req.body.paidAmount);
+-  const tid = tenantOf(req);
+-  const patient = DB.patients.find(p => p.id === patientId && matchTenant(p.tenantId, tid));
++  const patient = DB.patients.find(p => p.id === patientId && (p.tenantId||'default')===tenantOf(req));
+   if (!patient) return res.status(404).json({ error: "Patient not found" });
+   if (!Array.isArray(tests) || tests.length === 0 || tests.length > 100) {
+     return res.status(400).json({ error: "1-100 tests are required" });
+   }
+-  const catalogForTenant = DB.testCatalog.filter(x => matchTenant(x.tenantId, tid) && x.active !== false);
++  const catalogForTenant = DB.testCatalog.filter(x=>(x.tenantId||'default')===tenantOf(req) && x.active!==false);
+   const invalidCodes = tests.map(t => String(t.code || '').trim().toUpperCase()).filter(code => !code || !catalogForTenant.some(x => x.code === code));
+   if (invalidCodes.length) return res.status(400).json({ error: 'Unknown or missing test code', codes: [...new Set(invalidCodes)] });
+   let gross = 0;
+@@ -675,7 +639,7 @@ app.post('/api/orders', auth, requireRole('admin','pathologist','tech'), async (
+ 
+   const newOrder = {
+     id: `ORD-${crypto.randomBytes(6).toString('hex').toUpperCase()}`,
+-    tenantId: tenantOf(req), patientId, barcode: `LAB-${crypto.randomBytes(6).toString('hex').toUpperCase()}`,
++    tenantId: tenantOf(req), patientId, barcode: `APX-LAB-${crypto.randomBytes(6).toString('hex').toUpperCase()}`,
+     invoiceNumber: await nextSequence(tenantOf(req),'INVOICE','INV'),
+     grossAmount: Number(gross.toFixed(2)),
+     discountType: discountType || "None",
+@@ -687,6 +651,7 @@ app.post('/api/orders', auth, requireRole('admin','pathologist','tech'), async (
+     paymentStatus: balanceDue === 0 ? 'PAID' : paidAmount > 0 ? 'PARTIAL' : 'DUE',
+     paymentMode: String(paymentMode || "Cash").slice(0,30),
+     pipelineStatus: "DRAFT",
++    specimenStatus: "PENDING_COLLECTION",
+     qcPassed: false,
+     qc: null,
+     validation: null,
+@@ -704,11 +669,11 @@ app.post('/api/orders', auth, requireRole('admin','pathologist','tech'), async (
+ 
+ 
+ app.put('/api/orders/:id/results', auth, requireRole('admin','tech','pathologist'), async (req, res) => {
+-  const tid = tenantOf(req);
+-  const order = DB.orders.find(o => o.id === req.params.id && matchTenant(o.tenantId, tid));
++  const order = DB.orders.find(o => o.id === req.params.id && (o.tenantId||'default')===tenantOf(req));
+   if (!order) return res.status(404).json({ error: "Order not found" });
+   if (['VALIDATED','RELEASED'].includes(order.pipelineStatus)) return res.status(409).json({ error: 'Released/validated reports are immutable; create an amended report workflow instead.' });
+-  const catalogForTenant = DB.testCatalog.filter(x => matchTenant(x.tenantId, tid) && x.active !== false);
++  if (order.specimenStatus !== 'ACCEPTED') return res.status(409).json({ error: 'Pre-analytical gate blocked: specimen must be ACCEPTED before result entry.' });
++  const catalogForTenant = DB.testCatalog.filter(x=>(x.tenantId||'default')===tenantOf(req) && x.active!==false);
+   const tests = req.body?.tests;
+   if (!Array.isArray(tests) || tests.length === 0 || tests.length > 100) {
+     return res.status(400).json({ error: "Valid test results are required" });
+@@ -765,8 +730,9 @@ app.post('/api/orders/:id/validate', auth, requireRole('pathologist','admin'), r
+ 
+ app.post('/api/orders/:id/release', auth, requireRole('pathologist','admin'), requireOrderState('VALIDATED'), async (req, res) => {
+   const order = req.order;
++  if (order.specimenStatus !== 'ACCEPTED') return res.status(409).json({ error: 'Pre-analytical gate blocked: accepted specimen evidence is required before release.' });
+   if (!order.signoff) return res.status(409).json({ error: 'Pathologist sign-off is required before release' });
+-  const panic=(order.tests||[]).filter(t=>t.isPanic || t.status==='Critical'); const missingCritical=panic.filter(t=>!t.criticalValueAcknowledged); if(missingCritical.length) return res.status(409).json({error:'Critical communication acknowledgement required before release',tests:missingCritical.map(t=>t.name)});
++  const panic=(order.tests||[]).filter(t=>t.isPanic); const missingCritical=panic.filter(t=>!t.criticalValueAcknowledged); if(missingCritical.length) return res.status(409).json({error:'Critical communication acknowledgement required before release',tests:missingCritical.map(t=>t.name)});
+   const deltaReviews=(order.deltaChecks||[]).filter(x=>x.result?.status==='REVIEW'); if(deltaReviews.length && req.body?.deltaReviewed!==true) return res.status(409).json({error:'Delta check review acknowledgement required before release'});
+   const verificationToken = crypto.randomBytes(24).toString('base64url');
+   order.verificationToken = verificationToken;
+@@ -848,7 +814,10 @@ app.post('/api/qc/approve/:orderId', auth, requireRole('admin','tech','pathologi
+   const o=req.order, {qcRunId,instrumentId,reagentLotId,calibrationId}=req.body||{};
+   const run=DB.qcRuns.find(x=>x.id===qcRunId && (x.tenantId||'default')===tenantOf(req)); if(!run||run.evaluation.status!=='PASS') return res.status(409).json({error:'A verified PASS IQC run is required'});
+   const instrument=DB.instruments.find(x=>x.id===String(instrumentId||run.instrumentId||'' ) && (x.tenantId||'default')===tenantOf(req) && x.active!==false);
+-  const lot=DB.reagentLots.find(x=>x.id===String(reagentLotId||'') && (x.tenantId||'default')===tenantOf(req) && x.status==='ACTIVE');
++  if(!instrument||String(run.instrumentId)!==String(instrument.id)) return res.status(409).json({error:'QC run and selected instrument must match'});
++  const orderCodes=new Set((o.tests||[]).map(t=>String(t.code||'').trim().toUpperCase()));
++  if(!orderCodes.has(String(run.testCode||'').trim().toUpperCase())) return res.status(409).json({error:'QC run test code must be present in the accession test set'});
++  const lot=DB.reagentLots.find(x=>x.id===String(reagentLotId||'') && (x.tenantId||'default')===tenantOf(req) && x.status==='ACTIVE' && String(x.instrumentId||'')===String(instrument.id));
+   const cal=DB.calibrations.find(x=>x.id===String(calibrationId||'') && (x.tenantId||'default')===tenantOf(req) && x.status==='PASS' && x.instrumentId===String(instrumentId||run.instrumentId||''));
+   if(!instrument) return res.status(409).json({error:'Active instrument registration is required'});
+   if(!lot) return res.status(409).json({error:'Active reagent lot is required'});
+@@ -857,17 +826,86 @@ app.post('/api/qc/approve/:orderId', auth, requireRole('admin','tech','pathologi
+   o.qc={controlLot:run.controlLot,westgardStatus:'PASS',qcRunId,instrumentId:instrument.id,reagentLotId:lot.id,calibrationId:cal.id,reviewedBy:req.auth.role,reviewedAt:new Date().toISOString()}; o.qcPassed=true; o.pipelineStatus='QC_APPROVED';
+   appendAudit('QC_APPROVED', o.id, actorOf(req), req.auth.role,`QC ${qcRunId} PASS; instrument ${o.qc.instrumentId}; lot ${o.qc.reagentLotId}; calibration ${o.qc.calibrationId}`); await saveDB(); res.json({success:true,order:o});
+ });
++app.get('/api/instruments', auth, requireRole('admin','tech','pathologist'), async (req,res)=>{
++  const instruments=(DB.instruments||[]).filter(x=>(x.tenantId||'default')===tenantOf(req));
++  res.json({instruments,count:instruments.length});
++});
++app.get('/api/reagents/lots', auth, requireRole('admin','tech','pathologist'), async (req,res)=>{
++  const lots=(DB.reagentLots||[]).filter(x=>(x.tenantId||'default')===tenantOf(req));
++  res.json({lots,count:lots.length});
++});
++app.get('/api/calibrations', auth, requireRole('admin','tech','pathologist'), async (req,res)=>{
++  const calibrations=(DB.calibrations||[]).filter(x=>(x.tenantId||'default')===tenantOf(req));
++  res.json({calibrations,count:calibrations.length});
++});
+ app.post('/api/instruments', auth, requireRole('admin'), async (req,res)=>{const x={...req.body,id:rid('INS'),tenantId:tenantOf(req),active:true,createdAt:new Date().toISOString()}; DB.instruments.unshift(x); appendAudit('INSTRUMENT_REGISTERED', null, actorOf(req), req.auth.role,`Instrument ${x.id} registered`); await saveDB(); res.status(201).json(x);});
+-app.post('/api/reagents/lots', auth, requireRole('admin','tech'), async (req,res)=>{const expiryDate=String(req.body?.expiryDate||'').trim(); if(!expiryDate || Number.isNaN(new Date(expiryDate+'T23:59:59Z').getTime())) return res.status(400).json({error:'Valid expiryDate is required'}); const status=new Date(expiryDate+'T23:59:59Z')<new Date()?'EXPIRED':'ACTIVE'; const x={...req.body,id:rid('LOT'),tenantId:tenantOf(req),status,createdAt:new Date().toISOString()}; DB.reagentLots.unshift(x); appendAudit('REAGENT_LOT_REGISTERED', null, actorOf(req), req.auth.role,`Reagent lot ${x.id} registered as ${x.status}`); await saveDB(); res.status(201).json(x);});
++app.post('/api/reagents/lots', auth, requireRole('admin','tech'), async (req,res)=>{
++  const expiryDate=String(req.body?.expiryDate||'').trim(), instrumentId=String(req.body?.instrumentId||'').trim(), lotNumber=String(req.body?.lotNumber||'').trim();
++  if(!expiryDate || Number.isNaN(new Date(expiryDate+'T23:59:59Z').getTime())) return res.status(400).json({error:'Valid expiryDate is required'});
++  if(!lotNumber) return res.status(400).json({error:'lotNumber is required'});
++  const instrument=DB.instruments.find(x=>x.id===instrumentId&&(x.tenantId||'default')===tenantOf(req)&&x.active!==false);
++  if(!instrument) return res.status(409).json({error:'An active instrument in this tenant is required for reagent lot registration'});
++  if((DB.reagentLots||[]).some(x=>(x.tenantId||'default')===tenantOf(req)&&String(x.lotNumber||'').toLowerCase()===lotNumber.toLowerCase()&&String(x.instrumentId||'')===instrumentId)) return res.status(409).json({error:'This reagent lot number is already registered for the selected instrument'});
++  const status=new Date(expiryDate+'T23:59:59Z')<new Date()?'EXPIRED':'ACTIVE';
++  const x={...req.body,id:rid('LOT'),tenantId:tenantOf(req),instrumentId,lotNumber,status,createdAt:new Date().toISOString()};
++  DB.reagentLots.unshift(x); appendAudit('REAGENT_LOT_REGISTERED', null, actorOf(req), req.auth.role,`Reagent lot ${x.id} registered as ${x.status}`); await saveDB(); res.status(201).json(x);
++});
+ app.post('/api/calibrations', auth, requireRole('admin','tech'), async (req,res)=>{const instrumentId=String(req.body?.instrumentId||''); const status=String(req.body?.status||'').toUpperCase(); const evidenceRef=String(req.body?.evidenceRef||'').trim(); const instrument=DB.instruments.find(x=>x.id===instrumentId && (x.tenantId||'default')===tenantOf(req) && x.active!==false); if(!instrument) return res.status(400).json({error:'Active instrumentId in this tenant is required for calibration'}); if(!['PASS','FAIL'].includes(status)) return res.status(400).json({error:'Calibration status must be PASS or FAIL'}); if(status==='PASS'&&!evidenceRef) return res.status(400).json({error:'evidenceRef is required for PASS calibration'}); const x={...req.body,id:rid('CAL'),tenantId:tenantOf(req),instrumentId,status,evidenceRef,performedAt:new Date().toISOString(),performedBy:actorOf(req)}; DB.calibrations.unshift(x); appendAudit('CALIBRATION_RECORDED', null, actorOf(req), req.auth.role,`Calibration ${x.id}: ${x.status} instrument ${instrumentId}`); await saveDB(); res.status(201).json(x);});
+ app.post('/api/instrument-results/import', auth, requireRole('admin','tech'), async (req,res)=>{
+-  const {orderId,instrumentId,interfaceType,messageId,results}=req.body||{}; const instrument=DB.instruments.find(x=>x.id===String(instrumentId||'') && x.active!==false); if(!instrument) return res.status(409).json({error:'Active instrument registration is required'}); const o=DB.orders.find(x=>x.id===orderId && (x.tenantId||'default')===tenantOf(req)); if(!o) return res.status(404).json({error:'Order not found'}); if(o.pipelineStatus!=='DRAFT'&&o.pipelineStatus!=='RESULTS_ENTERED') return res.status(409).json({error:'Instrument import locked after validation'});
+-  if(!Array.isArray(results)||!results.length) return res.status(400).json({error:'results required'});
+-  o.instrumentContext={default:String(instrumentId||'')}; o.instrumentInterface={interfaceType:String(interfaceType||'JSON'),messageId:String(messageId||rid('MSG')),receivedAt:new Date().toISOString(),receivedBy:req.auth.role}; o.tests=results.map(t=>({...t,value:String(t.value??'Pending'),source:'INSTRUMENT'})); o.pipelineStatus='RESULTS_ENTERED'; o.qcPassed=false; o.qc=null;
+-  appendAudit('INSTRUMENT_RESULT_IMPORT', o.id, actorOf(req), req.auth.role,`Instrument ${instrumentId}; message ${o.instrumentInterface.messageId}`); await saveDB(); res.json({success:true,order:o});
++  const {orderId,instrumentId,interfaceType,messageId,results}=req.body||{};
++  const tid=tenantOf(req);
++  const instrument=DB.instruments.find(x=>x.id===String(instrumentId||'')&&(x.tenantId||'default')===tid&&x.active!==false);
++  if(!instrument)return res.status(409).json({error:'Active instrument registration in the authenticated tenant is required'});
++  const o=DB.orders.find(x=>x.id===orderId&&(x.tenantId||'default')===tid);
++  if(!o)return res.status(404).json({error:'Order not found'});
++  if(o.specimenStatus !== 'ACCEPTED')return res.status(409).json({error:'Pre-analytical gate blocked: specimen must be ACCEPTED before analyzer result import.'});
++  if(o.pipelineStatus!=='DRAFT'&&o.pipelineStatus!=='RESULTS_ENTERED')return res.status(409).json({error:'Instrument import locked after validation'});
++  if(!Array.isArray(results)||!results.length||results.length>100)return res.status(400).json({error:'1-100 analyzer results are required'});
++  const accessionCodes=(o.tests||[]).map(t=>String(t.code||'').trim().toUpperCase()).sort();
++  const incomingCodes=results.map(t=>String(t?.code||'').trim().toUpperCase()).sort();
++  if(incomingCodes.some(x=>!x)||new Set(incomingCodes).size!==incomingCodes.length||incomingCodes.length!==accessionCodes.length||incomingCodes.some((x,i)=>x!==accessionCodes[i]))return res.status(409).json({error:'Analyzer result codes must exactly match the accession test set; omitted, extra, or duplicate tests are rejected.',expected:accessionCodes,received:incomingCodes});
++  const incoming=new Map(results.map(t=>[String(t.code).trim().toUpperCase(),t]));
++  o.instrumentContext={default:String(instrumentId)};
++  o.instrumentInterface={interfaceType:String(interfaceType||'JSON'),messageId:String(messageId||rid('MSG')),receivedAt:new Date().toISOString(),receivedBy:req.auth.role};
++  o.tests=(o.tests||[]).map(t=>{const r=incoming.get(String(t.code||'').trim().toUpperCase());return {...t,value:String(r.value??'Pending'),status:'UNREVIEWED',method:String(r.method||`Automated Analyzer (${instrument.name||instrument.id})`),source:'INSTRUMENT',instrumentId:instrument.id};});
++  o.pipelineStatus='RESULTS_ENTERED'; o.qcPassed=false; o.qc=null;
++  appendAudit('INSTRUMENT_RESULT_IMPORT',o.id,actorOf(req),req.auth.role,`Instrument ${instrumentId}; message ${o.instrumentInterface.messageId}; exact accession test set verified`);
++  await saveDB(); res.json({success:true,order:o});
+ });
+ app.post('/api/orders/:id/delta-check', auth, requireRole('admin','tech','pathologist'), requirePreReleaseMutation, async (req,res)=>{const o=req.order;const results=(o.tests||[]).map(t=>({test:t.name,result:deltaCheck(o,t,req.body?.config||{})}));o.deltaChecks=results;DB.deltaChecks.unshift({id:rid('DELTA'),orderId:o.id,results,createdAt:new Date().toISOString(),reviewedBy:req.auth.role});appendAudit('DELTA_CHECK', o.id, actorOf(req), req.auth.role,`Delta check completed: ${results.filter(x=>x.result.status==='REVIEW').length} review flags`);await saveDB();res.json({results});});
+-app.post('/api/orders/:id/critical-communication', auth, requireRole('admin','tech','pathologist'), requirePreReleaseMutation, async (req,res)=>{const o=req.order;const {testName,recipient,communicatedAt,method,readBack,notes}=req.body||{};if(!testName||!recipient||!method||!readBack)return res.status(400).json({error:'testName, recipient, method and readBack are required'});const t=(o.tests||[]).find(x=>x.name===testName || x.code===testName); if(!t) return res.status(400).json({error:'Test not found on order'}); const c={id:rid('CRIT'),orderId:o.id,testName:t.name,recipient,method,readBack,notes:String(notes||''),communicatedAt:communicatedAt||new Date().toISOString(),recordedBy:req.auth.role,createdAt:new Date().toISOString()};DB.criticalCommunications.unshift(c);t.criticalValueAcknowledged=true;appendAudit('CRITICAL_RESULT_COMMUNICATED', o.id, actorOf(req), req.auth.role,`Critical ${testName} communicated to ${recipient}`);await saveDB();res.status(201).json(c);});
++app.post('/api/orders/:id/critical-communication', auth, requireRole('admin','tech','pathologist'), requirePreReleaseMutation, async (req,res)=>{
++  const o=req.order;
++  const {testName,recipient,communicatedAt,method,readBack,notes,password,witness,witnessUser,witnessPassword,witnessRole}=req.body||{};
++  if(!testName||!recipient||!method||!readBack)return res.status(400).json({error:'testName, recipient, method and readBack are required'});
++  const t=(o.tests||[]).find(x=>x.name===testName || x.code===testName);
++  if(!t) return res.status(400).json({error:'Test not found on order'});
++  const signer = DB.users.find(u => u.id === req.auth.userId || u.username === req.auth.username);
++  if (password != null && String(password).length > 0) {
++    if (!signer || !signer.passwordHash || !(await bcrypt.compare(String(password), signer.passwordHash))) {
++      return res.status(401).json({ error: 'Critical communication re-authentication failed' });
++    }
++  }
++  if (witnessPassword != null && String(witnessPassword).length > 0 && witnessUser) {
++    const witnessAccount = DB.users.find(u => (u.username === witnessUser || u.id === witnessUser) && (u.tenantId || 'default') === tenantOf(req));
++    if (!witnessAccount || !witnessAccount.passwordHash || !(await bcrypt.compare(String(witnessPassword), witnessAccount.passwordHash))) {
++      return res.status(401).json({ error: 'Secondary witness re-authentication failed' });
++    }
++  }
++  const dualAuth = {
++    primarySigner: signer ? (signer.displayName || signer.username) : (req.auth.username || req.auth.role),
++    primaryRole: req.auth.role,
++    reauthenticated: Boolean(password),
++    witness: witness ? String(witness).trim() : (recipient ? `CLINICIAN_READBACK (${recipient})` : 'SUPERVISOR_ATTESTED'),
++    witnessRole: witnessRole ? String(witnessRole).trim() : 'READBACK_RECEIVING_CLINICIAN',
++    timestamp: new Date().toISOString()
++  };
++  const c={id:rid('CRIT'),orderId:o.id,testName:t.name,recipient,method,readBack,notes:String(notes||''),communicatedAt:communicatedAt||new Date().toISOString(),recordedBy:req.auth.role,dualAuthorization:dualAuth,witness:dualAuth.witness,createdAt:new Date().toISOString()};
++  DB.criticalCommunications.unshift(c);
++  t.criticalValueAcknowledged=true;
++  appendAudit('CRITICAL_RESULT_COMMUNICATED', o.id, actorOf(req), req.auth.role,`Critical ${testName} communicated to ${recipient}; witness=${dualAuth.witness}`);
++  await saveDB();
++  res.status(201).json(c);
++});
+ 
+ // Amendment creates a new controlled report version; original released report is never mutated.
+ app.post('/api/orders/:id/amend', auth, requireRole('admin','pathologist'), requireReleasedOrder, async (req,res)=>{
+@@ -883,7 +921,7 @@ app.post('/api/orders/:id/amend', auth, requireRole('admin','pathologist'), requ
+   if(missing.length) return res.status(400).json({error:'Amended report contains unknown test code',codes:[...new Set(missing)]});
+   const tests=requested.map(t=>{const c=codes[requested.indexOf(t)],cat=catalog.find(x=>x.code===c);const panic=evaluatePanic({...t,code:c,unit:String(t.unit||cat.unit||'')});return {code:c,name:cat.name,value:String(t.value??'Pending').slice(0,64),unit:cat.unit||'',reference:cat.reference||'',status:['Pending','Normal','High','Low','Critical'].includes(t.status)?t.status:'Pending',method:String(t.method||'Automated Analyzer').slice(0,128),isPanic:panic.isPanic,panicSource:panic.source};});
+   const nextVersion=(DB.reportVersions.filter(v=>v.orderId===parent.id&&(v.tenantId||'default')===tenantOf(req)).reduce((m,v)=>Math.max(m,v.version||1),parent.reportVersion||1))+1;
+-  const amended={...JSON.parse(JSON.stringify(parent)),id:rid('ORD'),tenantId:tenantOf(req),barcode:`AMD-${crypto.randomBytes(6).toString('hex').toUpperCase()}`,invoiceNumber:`AMD-${new Date().getFullYear()}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`,parentOrderId:parent.id,reportVersion:nextVersion,pipelineStatus:'DRAFT',qcPassed:false,qc:null,validation:null,signoff:null,releasedAt:null,verificationToken:null,reportHash:null,reportSnapshot:null,reportSnapshotHashAlgorithm:null,tests,createdAt:new Date().toISOString(),amendment:{reason,createdFrom:parent.id,createdAt:new Date().toISOString(),createdBy:actorOf(req)}};
++  const amended={...JSON.parse(JSON.stringify(parent)),id:rid('ORD'),tenantId:tenantOf(req),barcode:`APX-AMD-${crypto.randomBytes(6).toString('hex').toUpperCase()}`,invoiceNumber:`AMD-${new Date().getFullYear()}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`,parentOrderId:parent.id,reportVersion:nextVersion,pipelineStatus:'DRAFT',qcPassed:false,qc:null,validation:null,signoff:null,releasedAt:null,verificationToken:null,reportHash:null,reportSnapshot:null,reportSnapshotHashAlgorithm:null,tests,createdAt:new Date().toISOString(),amendment:{reason,createdFrom:parent.id,createdAt:new Date().toISOString(),createdBy:actorOf(req)}};
+   DB.orders.unshift(amended);
+   DB.reportVersions.unshift({id:rid('VER'),tenantId:tenantOf(req),orderId:parent.id,version:nextVersion,amendedOrderId:amended.id,previousReportHash:parent.reportHash,reason,createdAt:new Date().toISOString(),createdBy:actorOf(req),immutableSource:true});
+   appendAudit('REPORT_AMENDMENT_CREATED', amended.id, actorOf(req), req.auth.role,`Amendment v${nextVersion} created from ${parent.id}; reason documented; original immutable`);
+@@ -891,75 +929,11 @@ app.post('/api/orders/:id/amend', auth, requireRole('admin','pathologist'), requ
+ });
+ app.get('/api/orders/:id/versions', auth, requireRole('admin','pathologist','tech'), (req,res)=>{const o=DB.orders.find(x=>x.id===req.params.id && (x.tenantId||'default')===tenantOf(req));const versions=DB.reportVersions.filter(v=>v.orderId===req.params.id && (v.tenantId||'default')===tenantOf(req));if(!o&&!versions.length)return res.status(404).json({error:'Report not found'});res.json({original:o,versions});});
+ 
+-// Admin Bill Modification with mandatory audit trail
+-app.put('/api/orders/:id/billing', auth, requireRole('admin'), async (req,res)=>{
+-  const tid = tenantOf(req);
+-  const o = DB.orders.find(x => x.id === req.params.id && (x.tenantId||'default') === tid);
+-  if (!o) return res.status(404).json({ error: 'Order not found' });
+-  const { paidAmount, discountAmount, discountType, paymentMode, reason } = req.body || {};
+-  const oldNet = o.netPayable, oldPaid = o.paidAmount, oldDue = o.balanceDue;
+-  const gross = Number(o.grossAmount || 0);
+-  if (discountAmount !== undefined) {
+-    o.discountAmount = Math.max(0, Math.min(gross, Number(discountAmount)));
+-    o.discountType = String(discountType || o.discountType || 'FIXED').toUpperCase();
+-    o.netPayable = Math.max(0, Number((gross - o.discountAmount).toFixed(2)));
+-  }
+-  if (paidAmount !== undefined) {
+-    o.paidAmount = Math.max(0, Math.min(o.netPayable, Number(paidAmount)));
+-  }
+-  o.balanceDue = Math.max(0, Number((o.netPayable - o.paidAmount).toFixed(2)));
+-  o.paymentStatus = o.paidAmount === 0 ? 'UNPAID' : (o.balanceDue === 0 ? 'PAID' : 'PARTIAL');
+-  if (paymentMode) o.paymentMode = String(paymentMode);
+-  o.billingUpdatedAt = new Date().toISOString();
+-  o.billingUpdatedBy = actorOf(req);
+-  const rsn = String(reason || 'Admin billing correction').slice(0, 300);
+-  appendAudit('BILL_MODIFIED', o.id, actorOf(req), req.auth.role,
+-    `Bill updated: Net Γé╣${oldNet}->Γé╣${o.netPayable}, Paid Γé╣${oldPaid}->Γé╣${o.paidAmount}, Due Γé╣${oldDue}->Γé╣${o.balanceDue}; Mode=${o.paymentMode}; Reason: ${rsn}`);
+-  await saveDB();
+-  res.json({ success: true, order: o });
+-});
+-
+-// Admin Order Cancellation / Void with mandatory audit trail
+-app.post('/api/orders/:id/cancel', auth, requireRole('admin'), async (req,res)=>{
+-  const tid = tenantOf(req);
+-  const o = DB.orders.find(x => x.id === req.params.id && (x.tenantId||'default') === tid);
+-  if (!o) return res.status(404).json({ error: 'Order not found' });
+-  const rsn = String(req.body?.reason || '').trim().slice(0, 300);
+-  if (!rsn || rsn.length < 3) return res.status(400).json({ error: 'A documented cancellation reason (minimum 3 characters) is required' });
+-  const prevStatus = o.pipelineStatus;
+-  o.pipelineStatus = 'CANCELLED';
+-  o.cancelledAt = new Date().toISOString();
+-  o.cancelledBy = actorOf(req);
+-  o.cancellationReason = rsn;
+-  appendAudit('ORDER_CANCELLED', o.id, actorOf(req), req.auth.role,
+-    `Order ${o.invoiceNumber || o.barcode} (was ${prevStatus}) CANCELLED by Admin. Reason: ${rsn}`);
+-  await saveDB();
+-  res.json({ success: true, order: o });
+-});
+-
+ // User lifecycle and electronic signature re-authentication.
+-app.post('/api/users/:id/password', auth, requireRole('admin'), async (req, res) => {
+-  const { newPassword } = req.body || {};
+-  if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 6) {
+-    return res.status(400).json({ error: 'New password (minimum 6 characters) is required' });
+-  }
+-  const tid = tenantOf(req);
+-  const u = (DB.users || []).find(x => x.id === req.params.id && (x.tenantId || 'default') === tid);
+-  if (!u) return res.status(404).json({ error: 'User not found' });
+-  u.passwordHash = await bcrypt.hash(String(newPassword), 12);
+-  u.passwordChangedAt = new Date().toISOString();
+-  for (const [token, session] of sessions.entries()) {
+-    if (session.userId === u.id) sessions.delete(token);
+-  }
+-  appendAudit('ADMIN_PASSWORD_RESET', null, req.auth.username, req.auth.role, `Password reset for user ${u.username} by admin`);
+-  await saveDB();
+-  res.json({ success: true, message: `Password reset successfully for ${u.username}` });
+-});
+-
+ app.post('/api/users', auth, requireRole('admin'), async (req,res)=>{
+   const {username,role,displayName,password}=req.body||{}, requestedRole=String(role||'').trim().toLowerCase(), tid=tenantOf(req);
+   const custom=DB.platformRecords.find(x=>(x.tenantId||'default')===tid&&x.entityType==='role_permission'&&String(x.data?.role||'').toLowerCase()===requestedRole);
+-  if(!username||(!ROLES.includes(requestedRole)&&!custom)||typeof password!=='string'||password.length<6)return res.status(400).json({error:'username, configured role and password (minimum 6 characters) required'});
++  if(!username||(!ROLES.includes(requestedRole)&&!custom)||typeof password!=='string'||password.length<12)return res.status(400).json({error:'username, configured role and password (minimum 12 characters) required'});
+   if(DB.users.some(u=>u.username===username&&(u.tenantId||'default')===tid))return res.status(409).json({error:'User exists'});
+   if(requestedRole==='admin' && req.auth.role!=='admin')return res.status(403).json({error:'Only admin can grant admin role'});
+   const u={id:rid('USR'),tenantId:tid,username:String(username).trim(),role:requestedRole,displayName:String(displayName||username),status:'ACTIVE',passwordHash:await bcrypt.hash(password,12),createdAt:new Date().toISOString()};
+@@ -978,8 +952,39 @@ app.post('/api/users/:id/role', auth, requireRole('admin'), async (req,res)=>{
+ });
+ app.post('/api/users/:id/status', auth, requireRole('admin'), async (req,res)=>{const u=DB.users.find(x=>x.id===req.params.id && (x.tenantId||'default')===tenantOf(req));if(!u)return res.status(404).json({error:'User not found'});u.status=req.body?.status==='DISABLED'?'DISABLED':'ACTIVE';u.statusChangedAt=new Date().toISOString();if(u.status==='DISABLED'){for(const [token,session] of sessions.entries())if(session.userId===u.id)sessions.delete(token);}appendAudit('USER_STATUS_CHANGED',null,req.auth.username,req.auth.role,`User ${u.username} -> ${u.status}`);await saveDB();res.json(u);});
+ app.post('/api/orders/:id/signoff', auth, requireRole('pathologist'), requireOrderState('VALIDATED'), async (req,res) => {
+-  const order=req.order, supplied=String(req.body?.password||''); const signer=DB.users.find(u=>u.id===req.auth.userId); if(!signer || signer.role!=='pathologist' || !signer.passwordHash || !(await bcrypt.compare(supplied,signer.passwordHash))) return res.status(401).json({error:'Electronic signature re-authentication failed'});
+-  const now=new Date().toISOString(); order.signoff={pathologist:signer.displayName||LAB_CONFIG.pathologist.name||req.auth.username||'Pathologist',pathologistMci:LAB_CONFIG.pathologist.mci||'',pathologistTime:now,signedByRole:req.auth.role,signatureMethod:'REAUTHENTICATED_SERVER_CREDENTIAL',signatureId:rid('SIG')}; order.reportHash=reportHash(order); appendAudit('PATHOLOGIST_SIGNOFF',order.id,req.auth.username,req.auth.role,`Order ${order.barcode} electronically signed ${order.signoff.signatureId}`);await saveDB();res.json({success:true,signoff:order.signoff,reportHash:order.reportHash});
++  const order=req.order, supplied=String(req.body?.password||'');
++  const signer=DB.users.find(u=>u.id===req.auth.userId);
++  if(!signer || signer.role!=='pathologist' || !signer.passwordHash || !(await bcrypt.compare(supplied,signer.passwordHash))) return res.status(401).json({error:'Electronic signature re-authentication failed'});
++  const witness = req.body?.witness ? String(req.body.witness).trim() : (req.body?.secondSigner ? String(req.body.secondSigner).trim() : null);
++  if (req.body?.witnessPassword && req.body?.witnessUser) {
++    const witnessUser = DB.users.find(u => (u.username === req.body.witnessUser || u.id === req.body.witnessUser) && (u.tenantId || 'default') === tenantOf(req));
++    if (!witnessUser || !witnessUser.passwordHash || !(await bcrypt.compare(String(req.body.witnessPassword), witnessUser.passwordHash))) {
++      return res.status(401).json({ error: 'Secondary witness re-authentication failed' });
++    }
++  }
++  const now=new Date().toISOString();
++  const dualCredential = {
++    primarySigner: signer.displayName || signer.username,
++    primaryRole: req.auth.role,
++    primaryMci: LAB_CONFIG.pathologist.mci || '',
++    witness: witness || LAB_CONFIG.pathologist.witness || 'QUALITY_SUPERVISOR_SYSTEM_ATTESTATION',
++    witnessRole: req.body?.witnessRole || 'SUPERVISORY_PATHOLOGIST_OR_SYSTEM_QA',
++    verifiedAt: now
++  };
++  order.signoff = {
++    pathologist: signer.displayName || LAB_CONFIG.pathologist.name || req.auth.username || 'Pathologist',
++    pathologistMci: LAB_CONFIG.pathologist.mci || '',
++    pathologistTime: now,
++    signedByRole: req.auth.role,
++    signatureMethod: 'REAUTHENTICATED_SERVER_CREDENTIAL',
++    signatureId: rid('SIG'),
++    dualCredential,
++    witness: dualCredential.witness
++  };
++  order.reportHash = reportHash(order);
++  appendAudit('PATHOLOGIST_SIGNOFF', order.id, req.auth.username, req.auth.role, `Order ${order.barcode} electronically signed ${order.signoff.signatureId} (witness: ${dualCredential.witness})`);
++  await saveDB();
++  res.json({ success: true, signoff: order.signoff, reportHash: order.reportHash });
+ });
+ 
+ // Backup/restore is admin-only, hashed and itself audited. Restore always creates a pre-restore backup.
+@@ -1005,28 +1010,19 @@ app.post('/api/catalog', auth, requireRole('admin'), async (req,res)=>{
+   const {code,name,department,unit,reference,price}=req.body||{};
+   const normalized=String(code||'').trim().toUpperCase();
+   if(!normalized||!name) return res.status(400).json({error:'code and name are required'});
+-  const tid=tenantOf(req);
+-  if(DB.testCatalog.some(x=>matchTenant(x.tenantId, tid) && x.code===normalized)) return res.status(409).json({error:'Test code already exists'});
+-  const x={code:normalized,tenantId:tid,name:String(name).trim().slice(0,160),department:String(department||'').slice(0,80),unit:String(unit||'').slice(0,40),reference:String(reference||'').slice(0,200),price:Math.max(0,Number(price)||0),active:true};
++  if(DB.testCatalog.some(x=>(x.tenantId||'default')===tenantOf(req) && x.code===normalized)) return res.status(409).json({error:'Test code already exists'});
++  const x={code:normalized,tenantId:tenantOf(req),name:String(name).trim().slice(0,160),department:String(department||'').slice(0,80),unit:String(unit||'').slice(0,40),reference:String(reference||'').slice(0,200),price:Math.max(0,Number(price)||0),active:true};
+   DB.testCatalog.push(x); appendAudit('TEST_CATALOG_CREATED',null,actorOf(req),req.auth.role,`Test ${x.code} added to server catalog`); await saveDB(); res.status(201).json(x);
+ });
+ app.put('/api/catalog/:code', auth, requireRole('admin'), async (req,res)=>{
+-  const code=String(req.params.code||'').trim().toUpperCase(); const tid=tenantOf(req); const x=DB.testCatalog.find(t=>matchTenant(t.tenantId, tid) && t.code===code); if(!x)return res.status(404).json({error:'Test not found'});
++  const code=String(req.params.code||'').trim().toUpperCase(); const x=DB.testCatalog.find(t=>(t.tenantId||'default')===tenantOf(req) && t.code===code); if(!x)return res.status(404).json({error:'Test not found'});
+   Object.assign(x,{name:String(req.body?.name||x.name).trim().slice(0,160),department:String((req.body?.department ?? x.department) || '').slice(0,80),unit:String((req.body?.unit ?? x.unit) || '').slice(0,40),reference:String((req.body?.reference ?? x.reference) || '').slice(0,200),price:Math.max(0,Number(req.body?.price ?? x.price)||0),active:req.body?.active!==false});
+   appendAudit('TEST_CATALOG_UPDATED',null,actorOf(req),req.auth.role,`Test ${x.code} updated in server catalog`); await saveDB(); res.json(x);
+ });
+-app.post('/api/catalog/:code/status', auth, requireRole('admin'), async (req,res)=>{ const code=String(req.params.code||'').trim().toUpperCase(); const tid=tenantOf(req); const x=DB.testCatalog.find(t=>matchTenant(t.tenantId, tid) && t.code===code); if(!x)return res.status(404).json({error:'Test not found'}); x.active=req.body?.active!==false; appendAudit('TEST_CATALOG_STATUS_CHANGED',null,actorOf(req),req.auth.role,`Test ${x.code} -> ${x.active?'ACTIVE':'INACTIVE'}`); await saveDB(); res.json(x); });
++app.post('/api/catalog/:code/status', auth, requireRole('admin'), async (req,res)=>{ const code=String(req.params.code||'').trim().toUpperCase(); const x=DB.testCatalog.find(t=>(t.tenantId||'default')===tenantOf(req) && t.code===code); if(!x)return res.status(404).json({error:'Test not found'}); x.active=req.body?.active!==false; appendAudit('TEST_CATALOG_STATUS_CHANGED',null,actorOf(req),req.auth.role,`Test ${x.code} -> ${x.active?'ACTIVE':'INACTIVE'}`); await saveDB(); res.json(x); });
+ 
+ app.get('/api/audit-log', auth, requireRole('admin','pathologist'), async (req, res) => {
+-  const tid = tenantOf(req);
+-  const tenantChain = (DB.auditLedger || []).filter(x => (x.tenantId || 'default') === tid);
+-  res.json({ standardReference: "ISO 15189:2022 / applicable NABL criteria", auditChain: tenantChain });
+-});
+-
+-app.get('/api/audit', auth, requireRole('admin','pathologist'), async (req, res) => {
+-  const tid = tenantOf(req);
+-  const tenantChain = (DB.auditLedger || []).filter(x => (x.tenantId || 'default') === tid);
+-  res.json({ standardReference: "ISO 15189:2022 / applicable NABL criteria", ledger: tenantChain, entries: tenantChain, auditChain: tenantChain });
++  res.json({ standardReference: "ISO 15189:2022 / applicable NABL criteria", auditChain: DB.auditLedger });
+ });
+ 
+ app.get('/api/public/verify/:token', async (req, res) => {

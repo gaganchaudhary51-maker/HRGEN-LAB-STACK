@@ -1,0 +1,799 @@
+[
+  {
+    "id": "T2.BC.1",
+    "category": "Score Clamping Minimum",
+    "name": "Extreme worst-case multi-morbidity clamped to exactly 15",
+    "description": "Verifies that when cumulative deductions (-18 age, -14 sedentary, -15 stress, -58 symptoms, -38 family = raw -43) plunge below zero, score is strictly clamped to lower bound 15.",
+    "input": {
+      "ageGroup": "60+",
+      "gender": "male",
+      "activityLevel": "sedentary",
+      "sleepStress": "poor_sleep_high_stress",
+      "symptoms": ["fatigue", "thirst_urination", "joint_pain", "bp_concerns"],
+      "familyHistory": ["diabetes", "hypertension", "kidney", "thyroid"]
+    },
+    "expected": {
+      "rawScoreCalculated": -43,
+      "vitalityScore": 15,
+      "vitalityBracket": "Elevated Risk",
+      "isClamped": true
+    }
+  },
+  {
+    "id": "T2.BC.2",
+    "category": "Score Clamping Minimum",
+    "name": "Sub-15 boundary value 10 clamped to 15",
+    "description": "Verifies raw score of 10 is clamped to minimum allowed boundary 15.",
+    "input": {
+      "ageGroup": "60+",
+      "gender": "female",
+      "activityLevel": "sedentary",
+      "sleepStress": "poor_sleep_high_stress",
+      "symptoms": ["thirst_urination", "bp_concerns", "joint_pain"],
+      "familyHistory": ["diabetes"]
+    },
+    "expected": {
+      "vitalityScore": 15,
+      "vitalityBracket": "Elevated Risk"
+    }
+  },
+  {
+    "id": "T2.BC.3",
+    "category": "Score Clamping Minimum",
+    "name": "Exact lower boundary value 15",
+    "description": "Verifies an input configuration yielding exactly 15 is preserved as 15.",
+    "input": {
+      "ageGroup": "60+",
+      "gender": "other",
+      "activityLevel": "sedentary",
+      "sleepStress": "poor_sleep_high_stress",
+      "symptoms": ["fatigue", "thirst_urination", "joint_pain"],
+      "familyHistory": ["hypertension"]
+    },
+    "expected": {
+      "vitalityScore": 15
+    }
+  },
+  {
+    "id": "T2.BC.4",
+    "category": "Score Clamping Minimum",
+    "name": "Just above lower boundary 16",
+    "description": "Verifies score 16 remains unclamped.",
+    "input": {
+      "ageGroup": "60+",
+      "gender": "male",
+      "activityLevel": "sedentary",
+      "sleepStress": "moderate_stress",
+      "symptoms": ["thirst_urination", "bp_concerns", "fatigue"],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "vitalityScore": 17
+    }
+  },
+  {
+    "id": "T2.BC.5",
+    "category": "Score Clamping Maximum",
+    "name": "Pristine inputs raw score 100 clamped to upper bound 98",
+    "description": "Verifies that perfect inputs yielding 100 points are clamped to upper contract bound 98 (PROJECT.md line 91).",
+    "input": {
+      "ageGroup": "18-29",
+      "gender": "female",
+      "activityLevel": "active",
+      "sleepStress": "restful",
+      "symptoms": ["general_checkup"],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "rawScoreCalculated": 100,
+      "vitalityScore": 98,
+      "vitalityBracket": "Optimal",
+      "isClamped": true
+    }
+  },
+  {
+    "id": "T2.BC.6",
+    "category": "Score Clamping Maximum",
+    "name": "Completely empty symptoms raw 100 clamped to 98",
+    "description": "Verifies raw score 100 with zero symptoms is clamped to 98.",
+    "input": {
+      "ageGroup": "18-29",
+      "gender": "male",
+      "activityLevel": "active",
+      "sleepStress": "restful",
+      "symptoms": [],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "vitalityScore": 98,
+      "vitalityBracket": "Optimal"
+    }
+  },
+  {
+    "id": "T2.BC.7",
+    "category": "Score Clamping Maximum",
+    "name": "Near upper boundary 97 preserved",
+    "description": "Verifies score just below 98 is preserved.",
+    "input": {
+      "ageGroup": "18-29",
+      "gender": "male",
+      "activityLevel": "active",
+      "sleepStress": "restful",
+      "symptoms": ["general_checkup"],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "vitalityScore": 98
+    }
+  },
+  {
+    "id": "T2.BC.8",
+    "category": "Empty Inputs",
+    "name": "Empty symptoms array [] handling",
+    "description": "Verifies engine handles empty symptoms array without null pointer or crash.",
+    "input": {
+      "ageGroup": "30-45",
+      "gender": "male",
+      "activityLevel": "moderate",
+      "sleepStress": "restful",
+      "symptoms": [],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "valid": true,
+      "vitalityScore": 89,
+      "vitalityBracket": "Optimal"
+    }
+  },
+  {
+    "id": "T2.BC.9",
+    "category": "Empty Inputs",
+    "name": "Empty family history array [] handling",
+    "description": "Verifies engine handles empty family history array gracefully.",
+    "input": {
+      "ageGroup": "30-45",
+      "gender": "female",
+      "activityLevel": "moderate",
+      "sleepStress": "restful",
+      "symptoms": ["fatigue"],
+      "familyHistory": []
+    },
+    "expected": {
+      "valid": true,
+      "vitalityScore": 77,
+      "vitalityBracket": "Moderate"
+    }
+  },
+  {
+    "id": "T2.BC.10",
+    "category": "Empty Inputs",
+    "name": "Both symptoms and family history arrays empty",
+    "description": "Verifies engine processes simultaneously empty symptoms and family history.",
+    "input": {
+      "ageGroup": "30-45",
+      "gender": "male",
+      "activityLevel": "moderate",
+      "sleepStress": "moderate_stress",
+      "symptoms": [],
+      "familyHistory": []
+    },
+    "expected": {
+      "valid": true,
+      "vitalityScore": 82,
+      "vitalityBracket": "Optimal"
+    }
+  },
+  {
+    "id": "T2.BC.11",
+    "category": "Max Inputs",
+    "name": "All 5 symptoms selected simultaneously",
+    "description": "Verifies engine handles full selection of all 5 available symptoms.",
+    "input": {
+      "ageGroup": "30-45",
+      "gender": "female",
+      "activityLevel": "moderate",
+      "sleepStress": "moderate_stress",
+      "symptoms": ["fatigue", "thirst_urination", "joint_pain", "bp_concerns", "general_checkup"],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "valid": true,
+      "symptomCount": 5,
+      "vitalityScore": 24,
+      "vitalityBracket": "Elevated Risk"
+    }
+  },
+  {
+    "id": "T2.BC.12",
+    "category": "Max Inputs",
+    "name": "All 4 medical family histories selected simultaneously",
+    "description": "Verifies engine handles full family history cluster (diabetes, hypertension, kidney, thyroid).",
+    "input": {
+      "ageGroup": "18-29",
+      "gender": "male",
+      "activityLevel": "active",
+      "sleepStress": "restful",
+      "symptoms": [],
+      "familyHistory": ["diabetes", "hypertension", "kidney", "thyroid"]
+    },
+    "expected": {
+      "valid": true,
+      "familyCount": 4,
+      "vitalityScore": 62,
+      "vitalityBracket": "Moderate"
+    }
+  },
+  {
+    "id": "T2.BC.13",
+    "category": "Zero Price Delta",
+    "name": "Zero price difference between primary and camp package",
+    "description": "Verifies savings calculation when primary price equals camp price results in savingsAmount = 0 and savingsPercentage = 0.",
+    "input": {
+      "primaryPrice": 499,
+      "campPrice": 499
+    },
+    "expected": {
+      "savingsAmount": 0,
+      "savingsPercentage": 0
+    }
+  },
+  {
+    "id": "T2.BC.14",
+    "category": "Negative Price Delta Guard",
+    "name": "Guard against negative savings when primary is cheaper than camp",
+    "description": "Verifies that when primary is cheaper than camp (e.g. renal ₹175 vs basiccamp ₹299), savingsAmount clamps to 0 rather than negative.",
+    "input": {
+      "ageGroup": "46-60",
+      "gender": "male",
+      "activityLevel": "moderate",
+      "sleepStress": "restful",
+      "symptoms": [],
+      "familyHistory": ["kidney"]
+    },
+    "expected": {
+      "primaryPackagePrice": 175,
+      "campPackagePrice": 299,
+      "savingsAmount": 0,
+      "savingsPercentage": 0
+    }
+  },
+  {
+    "id": "T2.BC.15",
+    "category": "Age Group Boundaries",
+    "name": "Age group 18-29 deduction is exactly 0",
+    "description": "Verifies baseline age group 18-29 incurs 0 deduction points.",
+    "input": {
+      "ageGroup": "18-29",
+      "gender": "male",
+      "activityLevel": "active",
+      "sleepStress": "restful",
+      "symptoms": [],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "vitalityScore": 98
+    }
+  },
+  {
+    "id": "T2.BC.16",
+    "category": "Age Group Boundaries",
+    "name": "Age group 30-45 deduction is exactly -5",
+    "description": "Verifies age group 30-45 incurs exactly 5 deduction points.",
+    "input": {
+      "ageGroup": "30-45",
+      "gender": "female",
+      "activityLevel": "active",
+      "sleepStress": "restful",
+      "symptoms": [],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "vitalityScore": 95
+    }
+  },
+  {
+    "id": "T2.BC.17",
+    "category": "Age Group Boundaries",
+    "name": "Age group 46-60 deduction is exactly -12",
+    "description": "Verifies age group 46-60 incurs exactly 12 deduction points.",
+    "input": {
+      "ageGroup": "46-60",
+      "gender": "male",
+      "activityLevel": "active",
+      "sleepStress": "restful",
+      "symptoms": [],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "vitalityScore": 88
+    }
+  },
+  {
+    "id": "T2.BC.18",
+    "category": "Age Group Boundaries",
+    "name": "Age group 60+ deduction is exactly -18",
+    "description": "Verifies age group 60+ incurs exactly 18 deduction points.",
+    "input": {
+      "ageGroup": "60+",
+      "gender": "female",
+      "activityLevel": "active",
+      "sleepStress": "restful",
+      "symptoms": [],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "vitalityScore": 82
+    }
+  },
+  {
+    "id": "T2.BC.19",
+    "category": "Activity Level Boundaries",
+    "name": "Activity level active deduction is exactly 0",
+    "description": "Verifies active lifestyle carries 0 penalty.",
+    "input": {
+      "ageGroup": "18-29",
+      "gender": "male",
+      "activityLevel": "active",
+      "sleepStress": "restful",
+      "symptoms": [],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "vitalityScore": 98
+    }
+  },
+  {
+    "id": "T2.BC.20",
+    "category": "Activity Level Boundaries",
+    "name": "Activity level moderate deduction is exactly -6",
+    "description": "Verifies moderate activity incurs 6 deduction points.",
+    "input": {
+      "ageGroup": "18-29",
+      "gender": "female",
+      "activityLevel": "moderate",
+      "sleepStress": "restful",
+      "symptoms": [],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "vitalityScore": 94
+    }
+  },
+  {
+    "id": "T2.BC.21",
+    "category": "Activity Level Boundaries",
+    "name": "Activity level sedentary deduction is exactly -14",
+    "description": "Verifies sedentary lifestyle incurs 14 deduction points.",
+    "input": {
+      "ageGroup": "18-29",
+      "gender": "male",
+      "activityLevel": "sedentary",
+      "sleepStress": "restful",
+      "symptoms": [],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "vitalityScore": 86
+    }
+  },
+  {
+    "id": "T2.BC.22",
+    "category": "Sleep & Stress Boundaries",
+    "name": "SleepStress restful deduction is exactly 0",
+    "description": "Verifies restful sleep incurs 0 penalty.",
+    "input": {
+      "ageGroup": "18-29",
+      "gender": "male",
+      "activityLevel": "active",
+      "sleepStress": "restful",
+      "symptoms": [],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "vitalityScore": 98
+    }
+  },
+  {
+    "id": "T2.BC.23",
+    "category": "Sleep & Stress Boundaries",
+    "name": "SleepStress moderate_stress deduction is exactly -7",
+    "description": "Verifies moderate stress incurs 7 deduction points.",
+    "input": {
+      "ageGroup": "18-29",
+      "gender": "female",
+      "activityLevel": "active",
+      "sleepStress": "moderate_stress",
+      "symptoms": [],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "vitalityScore": 93
+    }
+  },
+  {
+    "id": "T2.BC.24",
+    "category": "Sleep & Stress Boundaries",
+    "name": "SleepStress poor_sleep_high_stress deduction is exactly -15",
+    "description": "Verifies severe stress/poor sleep incurs 15 deduction points.",
+    "input": {
+      "ageGroup": "18-29",
+      "gender": "other",
+      "activityLevel": "active",
+      "sleepStress": "poor_sleep_high_stress",
+      "symptoms": [],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "vitalityScore": 85
+    }
+  },
+  {
+    "id": "T2.BC.25",
+    "category": "Gender Invariance",
+    "name": "Gender neutrality verification male vs female vs other",
+    "description": "Verifies gender variations produce strictly identical clinical scores under identical clinical vectors.",
+    "input": {
+      "ageGroup": "30-45",
+      "activityLevel": "moderate",
+      "sleepStress": "moderate_stress",
+      "symptoms": ["fatigue"],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "maleScore": 70,
+      "femaleScore": 70,
+      "otherScore": 70,
+      "isIdentical": true
+    }
+  },
+  {
+    "id": "T2.BC.26",
+    "category": "Score Bracket Thresholds",
+    "name": "Optimal boundary threshold exact 80 is Optimal",
+    "description": "Verifies score 80 is classified in 'Optimal' bracket.",
+    "input": {
+      "vitalityScore": 80
+    },
+    "expected": {
+      "vitalityBracket": "Optimal"
+    }
+  },
+  {
+    "id": "T2.BC.27",
+    "category": "Score Bracket Thresholds",
+    "name": "Moderate boundary threshold exact 79 is Moderate",
+    "description": "Verifies score 79 is classified in 'Moderate' bracket.",
+    "input": {
+      "vitalityScore": 79
+    },
+    "expected": {
+      "vitalityBracket": "Moderate"
+    }
+  },
+  {
+    "id": "T2.BC.28",
+    "category": "Score Bracket Thresholds",
+    "name": "Moderate lower threshold exact 55 is Moderate",
+    "description": "Verifies score 55 is classified in 'Moderate' bracket.",
+    "input": {
+      "vitalityScore": 55
+    },
+    "expected": {
+      "vitalityBracket": "Moderate"
+    }
+  },
+  {
+    "id": "T2.BC.29",
+    "category": "Score Bracket Thresholds",
+    "name": "Elevated Risk threshold exact 54 is Elevated Risk",
+    "description": "Verifies score 54 is classified in 'Elevated Risk' bracket.",
+    "input": {
+      "vitalityScore": 54
+    },
+    "expected": {
+      "vitalityBracket": "Elevated Risk"
+    }
+  },
+  {
+    "id": "T2.BC.30",
+    "category": "Radial Gauge Arc Bounds",
+    "name": "Radial gauge dashoffset at score 0",
+    "description": "Verifies strokeDashoffset equals full circumference 578.053 at score 0.",
+    "input": {
+      "score": 0
+    },
+    "expected": {
+      "strokeDashoffset": 578.053
+    }
+  },
+  {
+    "id": "T2.BC.31",
+    "category": "Radial Gauge Arc Bounds",
+    "name": "Radial gauge dashoffset at score 100",
+    "description": "Verifies strokeDashoffset equals 0 at score 100.",
+    "input": {
+      "score": 100
+    },
+    "expected": {
+      "strokeDashoffset": 0.0
+    }
+  },
+  {
+    "id": "T2.BC.32",
+    "category": "Radial Gauge Arc Bounds",
+    "name": "Radial gauge dashoffset at score 50",
+    "description": "Verifies strokeDashoffset equals half circumference 289.027 at score 50.",
+    "input": {
+      "score": 50
+    },
+    "expected": {
+      "strokeDashoffset": 289.027
+    }
+  },
+  {
+    "id": "T2.BC.33",
+    "category": "Cart State Boundaries",
+    "name": "Adding item with zero quantity performs no mutation",
+    "description": "Verifies calling qty(id, 0) leaves cart state and totals intact.",
+    "input": {
+      "cartBefore": { "smartadvance": 1 },
+      "packageId": "smartadvance",
+      "delta": 0
+    },
+    "expected": {
+      "cartAfter": { "smartadvance": 1 },
+      "count": 1,
+      "total": 499
+    }
+  },
+  {
+    "id": "T2.BC.34",
+    "category": "Cart State Boundaries",
+    "name": "High quantity boundary (100 items) total computation",
+    "description": "Verifies cart properly accumulates 100 items without overflow.",
+    "input": {
+      "cartBefore": {},
+      "packageId": "smartadvance",
+      "delta": 100
+    },
+    "expected": {
+      "count": 100,
+      "total": 49900
+    }
+  },
+  {
+    "id": "T2.BC.35",
+    "category": "Cart State Boundaries",
+    "name": "Decrementing below zero safely removes package",
+    "description": "Verifies calling qty(id, -5) on an item with quantity 1 cleanly removes it without negative counts.",
+    "input": {
+      "cartBefore": { "smartadvance": 1 },
+      "packageId": "smartadvance",
+      "delta": -5
+    },
+    "expected": {
+      "cartAfter": {},
+      "count": 0,
+      "total": 0
+    }
+  },
+  {
+    "id": "T2.BC.36",
+    "category": "Input Sanitization",
+    "name": "Duplicate symptoms array deduplication",
+    "description": "Verifies symptoms array with duplicates ['fatigue', 'fatigue'] only deducts fatigue penalty once.",
+    "input": {
+      "ageGroup": "18-29",
+      "gender": "male",
+      "activityLevel": "active",
+      "sleepStress": "restful",
+      "symptoms": ["fatigue", "fatigue"],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "vitalityScore": 88
+    }
+  },
+  {
+    "id": "T2.BC.37",
+    "category": "Input Sanitization",
+    "name": "Duplicate family history array deduplication",
+    "description": "Verifies family history array with duplicates ['diabetes', 'diabetes'] only deducts diabetes penalty once.",
+    "input": {
+      "ageGroup": "18-29",
+      "gender": "female",
+      "activityLevel": "active",
+      "sleepStress": "restful",
+      "symptoms": [],
+      "familyHistory": ["diabetes", "diabetes"]
+    },
+    "expected": {
+      "vitalityScore": 90
+    }
+  },
+  {
+    "id": "T2.BC.38",
+    "category": "Boundary Deduction Combination",
+    "name": "Single maximum symptom deduction: thirst_urination (-16 points)",
+    "description": "Verifies thirst_urination incurs exactly -16 points.",
+    "input": {
+      "ageGroup": "18-29",
+      "gender": "male",
+      "activityLevel": "active",
+      "sleepStress": "restful",
+      "symptoms": ["thirst_urination"],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "vitalityScore": 84
+    }
+  },
+  {
+    "id": "T2.BC.39",
+    "category": "Boundary Deduction Combination",
+    "name": "Single symptom deduction: bp_concerns (-16 points)",
+    "description": "Verifies bp_concerns incurs exactly -16 points.",
+    "input": {
+      "ageGroup": "18-29",
+      "gender": "male",
+      "activityLevel": "active",
+      "sleepStress": "restful",
+      "symptoms": ["bp_concerns"],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "vitalityScore": 84
+    }
+  },
+  {
+    "id": "T2.BC.40",
+    "category": "Boundary Deduction Combination",
+    "name": "Single symptom deduction: joint_pain (-14 points)",
+    "description": "Verifies joint_pain incurs exactly -14 points.",
+    "input": {
+      "ageGroup": "18-29",
+      "gender": "female",
+      "activityLevel": "active",
+      "sleepStress": "restful",
+      "symptoms": ["joint_pain"],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "vitalityScore": 86
+    }
+  },
+  {
+    "id": "T2.BC.41",
+    "category": "Boundary Deduction Combination",
+    "name": "Single symptom deduction: fatigue (-12 points)",
+    "description": "Verifies fatigue incurs exactly -12 points.",
+    "input": {
+      "ageGroup": "18-29",
+      "gender": "male",
+      "activityLevel": "active",
+      "sleepStress": "restful",
+      "symptoms": ["fatigue"],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "vitalityScore": 88
+    }
+  },
+  {
+    "id": "T2.BC.42",
+    "category": "Boundary Deduction Combination",
+    "name": "Single family history deduction: diabetes (-10 points)",
+    "description": "Verifies family diabetes incurs exactly -10 points.",
+    "input": {
+      "ageGroup": "18-29",
+      "gender": "male",
+      "activityLevel": "active",
+      "sleepStress": "restful",
+      "symptoms": [],
+      "familyHistory": ["diabetes"]
+    },
+    "expected": {
+      "vitalityScore": 90
+    }
+  },
+  {
+    "id": "T2.BC.43",
+    "category": "Boundary Deduction Combination",
+    "name": "Single family history deduction: hypertension (-10 points)",
+    "description": "Verifies family hypertension incurs exactly -10 points.",
+    "input": {
+      "ageGroup": "18-29",
+      "gender": "female",
+      "activityLevel": "active",
+      "sleepStress": "restful",
+      "symptoms": [],
+      "familyHistory": ["hypertension"]
+    },
+    "expected": {
+      "vitalityScore": 90
+    }
+  },
+  {
+    "id": "T2.BC.44",
+    "category": "Boundary Deduction Combination",
+    "name": "Single family history deduction: kidney (-10 points)",
+    "description": "Verifies family kidney incurs exactly -10 points.",
+    "input": {
+      "ageGroup": "18-29",
+      "gender": "male",
+      "activityLevel": "active",
+      "sleepStress": "restful",
+      "symptoms": [],
+      "familyHistory": ["kidney"]
+    },
+    "expected": {
+      "vitalityScore": 90
+    }
+  },
+  {
+    "id": "T2.BC.45",
+    "category": "Boundary Deduction Combination",
+    "name": "Single family history deduction: thyroid (-8 points)",
+    "description": "Verifies family thyroid incurs exactly -8 points.",
+    "input": {
+      "ageGroup": "18-29",
+      "gender": "female",
+      "activityLevel": "active",
+      "sleepStress": "restful",
+      "symptoms": [],
+      "familyHistory": ["thyroid"]
+    },
+    "expected": {
+      "vitalityScore": 92
+    }
+  },
+  {
+    "id": "T2.BC.46",
+    "category": "Boundary Deduction Combination",
+    "name": "Family history 'none' incurs exactly 0 points",
+    "description": "Verifies family history 'none' incurs 0 deduction points.",
+    "input": {
+      "ageGroup": "18-29",
+      "gender": "male",
+      "activityLevel": "active",
+      "sleepStress": "restful",
+      "symptoms": [],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "vitalityScore": 98
+    }
+  },
+  {
+    "id": "T2.BC.47",
+    "category": "Clinical Explanations Minimum Length",
+    "name": "Guaranteed minimum of 3 clinical explanations even for empty symptoms",
+    "description": "Verifies engine returns at least 3 clinical parameter explanations even when zero symptoms are selected.",
+    "input": {
+      "ageGroup": "18-29",
+      "gender": "male",
+      "activityLevel": "active",
+      "sleepStress": "restful",
+      "symptoms": [],
+      "familyHistory": ["none"]
+    },
+    "expected": {
+      "minExplanationsCount": 3
+    }
+  },
+  {
+    "id": "T2.BC.48",
+    "category": "Spring Trajectory Settle",
+    "name": "Zero displacement spring invocation stability",
+    "description": "Verifies spring solver starting at target value remains stationary without jitter.",
+    "input": {
+      "target": 50,
+      "initial": 50
+    },
+    "expected": {
+      "peakValue": 50,
+      "overshootRatio": 1.0,
+      "finalValue": 50
+    }
+  }
+]
